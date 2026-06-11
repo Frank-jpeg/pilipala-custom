@@ -62,38 +62,7 @@ class _AboutPageState extends State<AboutPage> {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(0, 0, 0, 30),
                   child: FilledButton.tonal(
-                    onPressed: () {
-                      showModalBottomSheet(
-                        context: context,
-                        builder: (context) {
-                          return Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              ListTile(
-                                onTap: () => _aboutController.githubRelease(),
-                                title: const Text('Github下载'),
-                              ),
-                              ListTile(
-                                onTap: () => _aboutController.panDownload(),
-                                title: const Text('Releases下载'),
-                              ),
-                              ListTile(
-                                onTap: () => _aboutController.webSiteUrl(),
-                                title: const Text('官网下载'),
-                              ),
-                              ListTile(
-                                onTap: () => _aboutController.qimiao(),
-                                title: const Text('奇妙应用'),
-                              ),
-                              SizedBox(
-                                  height:
-                                      MediaQuery.of(context).padding.bottom +
-                                          20)
-                            ],
-                          );
-                        },
-                      );
-                    },
+                    onPressed: () => _aboutController.checkUpdate(),
                     child: Text(
                       'V${_aboutController.currentVersion.value}',
                       style: subTitleStyle.copyWith(
@@ -268,6 +237,28 @@ class AboutController extends GetxController {
   // 跳转下载/本地更新
   Future onUpdate() async {
     Utils.matchVersion(data);
+  }
+
+  // 检查更新
+  Future checkUpdate() async {
+    if (currentVersion.value.isEmpty) {
+      await getCurrentApp();
+    }
+    if (isLoading.value) {
+      SmartDialog.showToast('正在获取最新版本');
+      return;
+    }
+    if (remoteVersion.value.isEmpty) {
+      await getRemoteApp();
+    }
+    if (remoteVersion.value.isEmpty) {
+      return;
+    }
+    if (!Utils.needUpdate(currentVersion.value, remoteVersion.value)) {
+      SmartDialog.showToast('当前已是最新版本');
+      return;
+    }
+    await Utils.matchVersion(data);
   }
 
   // 跳转github
