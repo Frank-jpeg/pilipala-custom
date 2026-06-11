@@ -4,12 +4,13 @@ import 'package:pilipala/pages/bangumi/index.dart';
 import 'package:pilipala/pages/hot/index.dart';
 import 'package:pilipala/pages/live/index.dart';
 import 'package:pilipala/pages/rcmd/index.dart';
+import 'package:pilipala/pages/short_video/index.dart';
 
-enum TabType { live, rcmd, hot, bangumi }
+enum TabType { live, rcmd, hot, bangumi, story }
 
 extension TabTypeDesc on TabType {
-  String get description => ['直播', '推荐', '热门', '番剧'][index];
-  String get id => ['live', 'rcmd', 'hot', 'bangumi'][index];
+  String get description => ['直播', '推荐', '热门', '番剧', '短视频'][index];
+  String get id => ['live', 'rcmd', 'hot', 'bangumi', 'story'][index];
 }
 
 List tabsConfig = [
@@ -52,5 +53,15 @@ List tabsConfig = [
     'type': TabType.bangumi,
     'ctr': Get.find<BangumiController>,
     'page': const BangumiPage(),
+  },
+  {
+    'icon': const Icon(
+      Icons.smart_display_outlined,
+      size: 15,
+    ),
+    'label': '短视频',
+    'type': TabType.story,
+    'ctr': Get.find<ShortVideoController>,
+    'page': const ShortVideoPage(),
   },
 ];

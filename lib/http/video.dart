@@ -5,6 +5,7 @@ import '../models/common/reply_type.dart';
 import '../models/home/rcmd/result.dart';
 import '../models/model_hot_video_item.dart';
 import '../models/model_rec_video_item.dart';
+import '../models/short_video/item.dart';
 import '../models/user/fav_folder.dart';
 import '../models/video/ai.dart';
 import '../models/video/play/url.dart';
@@ -107,6 +108,72 @@ class VideoHttp {
       return {'status': true, 'data': list};
     } else {
       return {'status': false, 'data': [], 'msg': res.data['message']};
+    }
+  }
+
+  // 首页短视频：复用现有 App 推荐接口，仅筛选返回中的竖屏视频。
+  static Future shortVideoFeed({
+    required int freshIdx,
+    int pageLimit = 4,
+    int minCount = 8,
+  }) async {
+    try {
+      List<ShortVideoItem> list = [];
+      int nextFreshIdx = freshIdx;
+      final accessKey =
+          localCache.get(LocalCacheKey.accessKey, defaultValue: {})['value'] ??
+              '';
+      List<int> blackMidsList =
+          setting.get(SettingBoxKey.blackMidsList, defaultValue: [-1]);
+
+      for (int page = 0; page < pageLimit && list.length < minCount; page++) {
+        final int currentFreshIdx = freshIdx + page;
+        var res = await Request().get(
+          Api.recommendListApp,
+          data: {
+            'idx': currentFreshIdx,
+            'flush': '5',
+            'column': '4',
+            'device': 'pad',
+            'device_type': 0,
+            'device_name': 'vivo',
+            'pull': currentFreshIdx == 0 ? 'true' : 'false',
+            'appkey': Constants.appKey,
+            'access_key': accessKey,
+          },
+        );
+
+        if (res.data['code'] != 0) {
+          if (page == 0) {
+            return {'status': false, 'data': [], 'msg': res.data['message']};
+          }
+          break;
+        }
+
+        final items = res.data['data']['items'] ?? [];
+        for (var i in items) {
+          if (i['goto'] != 'av' ||
+              i['card_goto'] == 'ad_av' ||
+              i['player_args'] == null ||
+              i['args'] == null ||
+              blackMidsList.contains(i['args']['up_id'])) {
+            continue;
+          }
+          final ShortVideoItem? videoItem =
+              ShortVideoItem.fromAppFeedJson(Map<String, dynamic>.from(i));
+          if (videoItem == null || !videoItem.isVertical) {
+            continue;
+          }
+          if (!RecommendFilter.filter(videoItem)) {
+            list.add(videoItem);
+          }
+        }
+        nextFreshIdx = currentFreshIdx + 1;
+      }
+
+      return {'status': true, 'data': list, 'nextFreshIdx': nextFreshIdx};
+    } catch (err) {
+      return {'status': false, 'data': [], 'msg': err.toString()};
     }
   }
 
