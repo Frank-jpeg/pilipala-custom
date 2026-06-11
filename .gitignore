@@ -54,6 +54,7 @@ analysis_benchmark.json
 .pub-cache/
 .pub/
 /build/
+android/build/
 flutter_*.png
 linked_*.ds
 unlinked.ds
@@ -125,6 +126,11 @@ coverage/
 
 # Symbols
 app.*.symbols
+
+# Local maintenance notes and release artifacts
+AGENTS.md
+notes/
+releases/
 
 # Exceptions to above rules.
 !**/ios/**/default.mode1v3
