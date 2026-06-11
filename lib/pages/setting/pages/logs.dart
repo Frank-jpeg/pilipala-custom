@@ -78,7 +78,7 @@ class _LogsPageState extends State<LogsPage> {
 
   void feedback() {
     launchUrl(
-      Uri.parse('https://github.com/guozhigq/pilipala/issues'),
+      Uri.parse('https://github.com/Frank-jpeg/pilipala-custom/issues'),
       // 系统自带浏览器打开
       mode: LaunchMode.externalApplication,
     );

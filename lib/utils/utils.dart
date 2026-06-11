@@ -306,11 +306,12 @@ class Utils {
                 onPressed: () async {
                   await SmartDialog.dismiss();
                   launchUrl(
-                    Uri.parse('https://www.123pan.com/s/9sVqVv-flu0A.html'),
+                    Uri.parse(
+                        'https://github.com/Frank-jpeg/pilipala-custom/releases'),
                     mode: LaunchMode.externalApplication,
                   );
                 },
-                child: const Text('网盘'),
+                child: const Text('Releases'),
               ),
               TextButton(
                 onPressed: () => matchVersion(data),

@@ -75,7 +75,7 @@ class _AboutPageState extends State<AboutPage> {
                               ),
                               ListTile(
                                 onTap: () => _aboutController.panDownload(),
-                                title: const Text('网盘下载'),
+                                title: const Text('Releases下载'),
                               ),
                               ListTile(
                                 onTap: () => _aboutController.webSiteUrl(),
@@ -116,7 +116,7 @@ class _AboutPageState extends State<AboutPage> {
               onTap: () => _aboutController.githubUrl(),
               title: const Text('开源地址'),
               trailing: Text(
-                'github.com/guozhigq/pilipala',
+                'github.com/Frank-jpeg/pilipala-custom',
                 style: subTitleStyle,
               ),
             ),
@@ -130,9 +130,9 @@ class _AboutPageState extends State<AboutPage> {
             ),
             ListTile(
               onTap: () => _aboutController.panDownload(),
-              title: const Text('网盘下载'),
+              title: const Text('Releases下载'),
               trailing: Text(
-                '提取码：pili',
+                'GitHub Releases',
                 style: TextStyle(
                   fontSize: 13,
                   color: Theme.of(context).colorScheme.outline,
@@ -273,29 +273,26 @@ class AboutController extends GetxController {
   // 跳转github
   githubUrl() {
     launchUrl(
-      Uri.parse('https://github.com/guozhigq/pilipala'),
+      Uri.parse('https://github.com/Frank-jpeg/pilipala-custom'),
       mode: LaunchMode.externalApplication,
     );
   }
 
   githubRelease() {
     launchUrl(
-      Uri.parse('https://github.com/guozhigq/pilipala/releases'),
+      Uri.parse('https://github.com/Frank-jpeg/pilipala-custom/releases'),
       mode: LaunchMode.externalApplication,
     );
   }
 
-  // 从网盘下载
+  // 从 GitHub Releases 下载
   panDownload() {
-    Clipboard.setData(
-      const ClipboardData(text: 'pili'),
-    );
     SmartDialog.showToast(
-      '已复制提取码：pili',
+      '即将打开 GitHub Releases',
       displayTime: const Duration(milliseconds: 500),
     ).then(
       (value) => launchUrl(
-        Uri.parse('https://www.123pan.com/s/9sVqVv-flu0A.html'),
+        Uri.parse('https://github.com/Frank-jpeg/pilipala-custom/releases'),
         mode: LaunchMode.externalApplication,
       ),
     );
@@ -304,7 +301,7 @@ class AboutController extends GetxController {
   // 问题反馈
   feedback() {
     launchUrl(
-      Uri.parse('https://github.com/guozhigq/pilipala/issues'),
+      Uri.parse('https://github.com/Frank-jpeg/pilipala-custom/issues'),
       // 系统自带浏览器打开
       mode: LaunchMode.externalApplication,
     );
