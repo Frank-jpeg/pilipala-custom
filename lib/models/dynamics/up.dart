@@ -1,3 +1,5 @@
+import 'json_helper.dart';
+
 class FollowUpModel {
   FollowUpModel({
     this.liveUsers,
@@ -39,7 +41,7 @@ class LiveUsers {
   List<LiveUserItem>? items;
 
   LiveUsers.fromJson(Map<String, dynamic> json) {
-    count = json['count'];
+    count = dynamicInt(json['count']);
     group = json['group'];
     items = json['items']
         .map<LiveUserItem>((e) => LiveUserItem.fromJson(e))
@@ -70,10 +72,10 @@ class LiveUserItem {
 
   LiveUserItem.fromJson(Map<String, dynamic> json) {
     face = json['face'];
-    isReserveRecall = json['is_reserve_recall'];
+    isReserveRecall = dynamicBool(json['is_reserve_recall']);
     jumpUrl = json['jump_url'];
-    mid = json['mid'];
-    roomId = json['room_id'];
+    mid = dynamicInt(json['mid']);
+    roomId = dynamicInt(json['room_id']);
     title = json['title'];
     uname = json['uname'];
   }
@@ -97,9 +99,9 @@ class UpItem {
 
   UpItem.fromJson(Map<String, dynamic> json) {
     face = json['face'];
-    hasUpdate = json['has_update'];
-    isReserveRecall = json['is_reserve_recall'];
-    mid = json['mid'];
+    hasUpdate = dynamicBool(json['has_update']);
+    isReserveRecall = dynamicBool(json['is_reserve_recall']);
+    mid = dynamicInt(json['mid']);
     uname = json['uname'];
   }
 }
@@ -117,7 +119,7 @@ class MyInfo {
 
   MyInfo.fromJson(Map<String, dynamic> json) {
     face = json['face'];
-    mid = json['mid'];
+    mid = dynamicInt(json['mid']);
     name = json['name'];
   }
 }

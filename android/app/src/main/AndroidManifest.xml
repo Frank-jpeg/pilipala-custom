@@ -1,5 +1,4 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.guozhigq.pilipala">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <queries>
         <intent>
             <action android:name="android.intent.action.VIEW" />
@@ -36,7 +35,7 @@
     </queries>
 
     <application
-        android:label="PiliPala"
+        android:label="PiliPala 自改版"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         xmlns:tools="http://schemas.android.com/tools"

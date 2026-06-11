@@ -1,9 +1,18 @@
 import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
-import 'package:auto_orientation/auto_orientation.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+
+const List<DeviceOrientation> _portraitOrientations = <DeviceOrientation>[
+  DeviceOrientation.portraitUp,
+  DeviceOrientation.portraitDown,
+];
+
+const List<DeviceOrientation> _landscapeOrientations = <DeviceOrientation>[
+  DeviceOrientation.landscapeLeft,
+  DeviceOrientation.landscapeRight,
+];
 
 //横屏
 Future<void> landScape() async {
@@ -12,17 +21,7 @@ Future<void> landScape() async {
     if (kIsWeb) {
       await document.documentElement?.requestFullscreen();
     } else if (Platform.isAndroid || Platform.isIOS) {
-      // await SystemChrome.setEnabledSystemUIMode(
-      //   SystemUiMode.immersiveSticky,
-      //   overlays: [],
-      // );
-      // await SystemChrome.setPreferredOrientations(
-      //   [
-      //     DeviceOrientation.landscapeLeft,
-      //     DeviceOrientation.landscapeRight,
-      //   ],
-      // );
-      await AutoOrientation.landscapeAutoMode(forceSensor: true);
+      await SystemChrome.setPreferredOrientations(_landscapeOrientations);
     } else if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
       await const MethodChannel('com.alexmercerind/media_kit_video')
           .invokeMethod(
@@ -37,9 +36,7 @@ Future<void> landScape() async {
 
 //竖屏
 Future<void> verticalScreen() async {
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-  ]);
+  await SystemChrome.setPreferredOrientations(_portraitOrientations);
 }
 
 Future<void> enterFullScreen() async {
@@ -64,7 +61,7 @@ Future<void> exitFullScreen() async {
         mode,
         overlays: SystemUiOverlay.values,
       );
-      await SystemChrome.setPreferredOrientations([]);
+      await SystemChrome.setPreferredOrientations(_portraitOrientations);
     } else if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
       await const MethodChannel('com.alexmercerind/media_kit_video')
           .invokeMethod(

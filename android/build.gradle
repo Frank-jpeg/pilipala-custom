@@ -1,12 +1,12 @@
 buildscript {
-    ext.kotlin_version = '1.9.0'
+    ext.kotlin_version = '1.9.23'
     repositories {
         google()
         mavenCentral()
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:7.2.0'
+        classpath 'com.android.tools.build:gradle:8.1.4'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
 }
@@ -24,6 +24,32 @@ subprojects {
 }
 subprojects {
     project.evaluationDependsOn(':app')
+}
+subprojects { subproject ->
+    subproject.plugins.withId('com.android.library') {
+        def androidExt = subproject.extensions.findByName('android')
+        if (androidExt == null || !androidExt.hasProperty('namespace') || androidExt.namespace != null) {
+            return
+        }
+
+        def manifestFile = null
+        try {
+            manifestFile = androidExt.sourceSets.main.manifest.srcFile
+        } catch (ignored) {
+        }
+
+        if (manifestFile != null && manifestFile.exists()) {
+            def manifestText = manifestFile.getText('UTF-8')
+            def matcher = manifestText =~ /package="([^"]+)"/
+            if (matcher.find()) {
+                androidExt.namespace = matcher.group(1)
+                return
+            }
+        }
+
+        def sanitizedName = subproject.name.replace('-', '_')
+        androidExt.namespace = "fallback.${sanitizedName}"
+    }
 }
 
 tasks.register("clean", Delete) {

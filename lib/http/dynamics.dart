@@ -50,10 +50,19 @@ class DynamicsHttp {
   static Future followUp() async {
     var res = await Request().get(Api.followUp);
     if (res.data['code'] == 0) {
-      return {
-        'status': true,
-        'data': FollowUpModel.fromJson(res.data['data']),
-      };
+      try {
+        return {
+          'status': true,
+          'data': FollowUpModel.fromJson(res.data['data']),
+        };
+      } catch (err) {
+        print(err);
+        return {
+          'status': false,
+          'data': [],
+          'msg': err.toString(),
+        };
+      }
     } else {
       return {
         'status': false,

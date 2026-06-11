@@ -5,6 +5,7 @@ import 'package:hive/hive.dart';
 import 'package:pilipala/http/video.dart';
 import 'package:pilipala/models/home/rcmd/result.dart';
 import 'package:pilipala/models/model_rec_video_item.dart';
+import 'package:pilipala/utils/recommend_filter.dart';
 import 'package:pilipala/utils/storage.dart';
 
 class RcmdController extends GetxController {
@@ -109,7 +110,11 @@ class RcmdController extends GetxController {
   }
 
   void blockUserCb(mid) {
-    videoList.removeWhere((e) => e.owner.mid == mid);
+    if (mid == null) {
+      videoList.removeWhere((e) => RecommendFilter.filter(e));
+    } else {
+      videoList.removeWhere((e) => e.owner.mid == mid);
+    }
     videoList.refresh();
     SmartDialog.showToast('已移除相关视频');
   }

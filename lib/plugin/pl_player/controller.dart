@@ -77,6 +77,7 @@ class PlPlayerController {
   final Rx<bool> _doubleSpeedStatus = false.obs;
   final Rx<bool> _controlsLock = false.obs;
   final Rx<bool> _isFullScreen = false.obs;
+  bool _isFullScreenTransitioning = false;
   final Rx<bool> _subTitleOpen = false.obs;
   final Rx<int> _subTitleCode = (-1).obs;
   // 默认投稿视频格式
@@ -933,28 +934,44 @@ class PlPlayerController {
     _isFullScreen.value = val;
   }
 
+  bool _shouldUsePortraitFullScreen(FullScreenMode mode) {
+    if (mode == FullScreenMode.vertical) {
+      return true;
+    }
+    if (mode == FullScreenMode.horizontal) {
+      return false;
+    }
+    return direction.value == 'vertical';
+  }
+
   // 全屏
   Future<void> triggerFullScreen({bool status = true}) async {
+    if (_isFullScreenTransitioning || isFullScreen.value == status) {
+      return;
+    }
+
     FullScreenMode mode = FullScreenModeCode.fromCode(
         setting.get(SettingBoxKey.fullScreenMode, defaultValue: 0))!;
-    await StatusBarControl.setHidden(true, animation: StatusBarAnimation.FADE);
-    if (!isFullScreen.value && status) {
-      /// 按照视频宽高比决定全屏方向
-      toggleFullScreen(true);
-
-      /// 进入全屏
-      await enterFullScreen();
-      if (mode == FullScreenMode.vertical ||
-          (mode == FullScreenMode.auto && direction.value == 'vertical')) {
-        await verticalScreen();
+    _isFullScreenTransitioning = true;
+    try {
+      if (status) {
+        await StatusBarControl.setHidden(true,
+            animation: StatusBarAnimation.FADE);
+        await enterFullScreen();
+        if (_shouldUsePortraitFullScreen(mode)) {
+          await verticalScreen();
+        } else {
+          await landScape();
+        }
+        toggleFullScreen(true);
       } else {
-        await landScape();
+        await StatusBarControl.setHidden(false,
+            animation: StatusBarAnimation.FADE);
+        await exitFullScreen();
+        toggleFullScreen(false);
       }
-    } else if (isFullScreen.value && !status) {
-      StatusBarControl.setHidden(false, animation: StatusBarAnimation.FADE);
-      exitFullScreen();
-      await verticalScreen();
-      toggleFullScreen(false);
+    } finally {
+      _isFullScreenTransitioning = false;
     }
   }
 

@@ -340,9 +340,10 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
             color: Colors.white,
           ),
         ),
-        fuc: () {
-          _.triggerFullScreen(status: !_.isFullScreen.value);
-          widget.fullScreenCb?.call(!_.isFullScreen.value);
+        fuc: () async {
+          final bool targetStatus = !_.isFullScreen.value;
+          await _.triggerFullScreen(status: targetStatus);
+          widget.fullScreenCb?.call(_.isFullScreen.value);
         },
       ),
     };
@@ -368,6 +369,54 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       }
     }
     return list;
+  }
+
+  Widget buildCenterPlayPauseButton() {
+    final PlPlayerController _ = widget.controller;
+    return Obx(() {
+      final bool visible = !_.controlsLock.value &&
+          _.showControls.value &&
+          !_.dataStatus.loading &&
+          !_.isBuffering.value;
+      final double buttonSize = _.isFullScreen.value ? 82 : 70;
+      final double iconSize = _.isFullScreen.value ? 48 : 42;
+      return Positioned.fill(
+        child: IgnorePointer(
+          ignoring: !visible,
+          child: AnimatedOpacity(
+            curve: Curves.easeInOut,
+            opacity: visible ? 1.0 : 0.0,
+            duration: GlobalDataCache().enablePlayerControlAnimation
+                ? const Duration(milliseconds: 150)
+                : const Duration(milliseconds: 10),
+            child: Center(
+              child: Material(
+                color: Colors.black.withOpacity(0.45),
+                shape: const CircleBorder(),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: () {
+                    _.togglePlay();
+                  },
+                  child: SizedBox(
+                    width: buttonSize,
+                    height: buttonSize,
+                    child: Icon(
+                      _.playerStatus.playing
+                          ? Icons.pause_rounded
+                          : Icons.play_arrow_rounded,
+                      size: iconSize,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    });
   }
 
   @override
@@ -703,6 +752,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
             onVerticalDragEnd: (DragEndDetails details) {},
           ),
         ),
+
+        /// 居中播放/暂停按钮
+        buildCenterPlayPauseButton(),
 
         // 头部、底部控制条
         Obx(

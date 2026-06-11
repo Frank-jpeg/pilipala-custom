@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'local_dislike.dart';
 import 'storage.dart';
 
 class RecommendFilter {
@@ -37,6 +38,9 @@ class RecommendFilter {
       return false;
     }
     if (videoItem.duration > 0 && videoItem.duration < minDurationForRcmd) {
+      return true;
+    }
+    if (LocalDislike.hasBlockedKeyword(LocalDislike.titleOf(videoItem))) {
       return true;
     }
     if (videoItem.stat.view is int &&

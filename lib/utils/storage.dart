@@ -109,6 +109,8 @@ class SettingBoxKey {
       minDurationForRcmd = 'minDurationForRcmd',
       minLikeRatioForRecommend = 'minLikeRatioForRecommend',
       exemptFilterForFollowed = 'exemptFilterForFollowed',
+      blockedTitleKeywords = 'blockedTitleKeywords',
+      reducedSimilarKeywords = 'reducedSimilarKeywords',
       //filterUnfollowedRatio = 'filterUnfollowedRatio',
       applyFilterToRelatedVideos = 'applyFilterToRelatedVideos',
 

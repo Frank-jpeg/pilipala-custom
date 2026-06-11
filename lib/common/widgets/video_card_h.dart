@@ -3,7 +3,8 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:pilipala/http/constants.dart';
 import 'package:pilipala/utils/feed_back.dart';
-import 'package:pilipala/utils/image_save.dart';
+import 'package:pilipala/utils/local_dislike.dart';
+import 'package:pilipala/utils/recommend_filter.dart';
 import 'package:pilipala/utils/route_push.dart';
 import 'package:pilipala/utils/url_utils.dart';
 import '../../http/search.dart';
@@ -78,11 +79,17 @@ class VideoCardH extends StatelessWidget {
           SmartDialog.showToast(err.toString());
         }
       },
-      onLongPress: () => imageSaveDialog(
-        context,
-        videoItem,
-        SmartDialog.dismiss,
-      ),
+      onLongPress: () {
+        feedBack();
+        showModalBottomSheet(
+          context: context,
+          useRootNavigator: true,
+          isScrollControlled: true,
+          builder: (context) {
+            return MorePanel(videoItem: videoItem);
+          },
+        );
+      },
       child: Padding(
         padding: const EdgeInsets.fromLTRB(
             StyleString.safeSpace, 5, StyleString.safeSpace, 5),
@@ -324,8 +331,18 @@ class MorePanel extends StatelessWidget {
 
   Future<dynamic> menuActionHandler(String type) async {
     switch (type) {
-      case 'block':
+      case 'blockLocal':
+        Get.back();
         blockUser();
+        break;
+      case 'keyword':
+        showKeywordDialog();
+        break;
+      case 'similar':
+        Get.back();
+        final String msg = LocalDislike.reduceSimilar(videoItem);
+        RecommendFilter.update();
+        SmartDialog.showToast(msg);
         break;
       case 'watchLater':
         var res = await UserHttp.toViewLater(bvid: videoItem.bvid as String);
@@ -336,6 +353,48 @@ class MorePanel extends StatelessWidget {
     }
   }
 
+  void showKeywordDialog() {
+    final List<String> suggestions = LocalDislike.suggestKeywords(videoItem);
+    final TextEditingController controller = TextEditingController(
+      text: suggestions.isNotEmpty ? suggestions.first : '',
+    );
+    SmartDialog.show(
+      useSystem: true,
+      animationType: SmartAnimationType.centerFade_otherSlide,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('屏蔽标题关键词'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(
+              hintText: '输入不想再看到的词',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => SmartDialog.dismiss(),
+              child: Text(
+                '点错了',
+                style: TextStyle(color: Theme.of(context).colorScheme.outline),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                final String msg = LocalDislike.blockKeyword(controller.text);
+                RecommendFilter.update();
+                SmartDialog.dismiss();
+                Get.back();
+                SmartDialog.showToast(msg);
+              },
+              child: const Text('确认'),
+            )
+          ],
+        );
+      },
+    );
+  }
+
   void blockUser() async {
     SmartDialog.show(
       useSystem: true,
@@ -344,7 +403,7 @@ class MorePanel extends StatelessWidget {
         return AlertDialog(
           title: const Text('提示'),
           content: Text('确定拉黑:${videoItem.owner.name}(${videoItem.owner.mid})?'
-              '\n\n注：被拉黑的Up可以在隐私设置-黑名单管理中解除'),
+              '\n\n注：被拉黑的UP可以在隐私设置-黑名单管理中解除'),
           actions: [
             TextButton(
               onPressed: () => SmartDialog.dismiss(),
@@ -361,6 +420,9 @@ class MorePanel extends StatelessWidget {
                   reSrc: 11,
                 );
                 SmartDialog.dismiss();
+                if (res['status']) {
+                  RecommendFilter.update();
+                }
                 SmartDialog.showToast(res['msg'] ?? '成功');
               },
               child: const Text('确认'),
@@ -395,11 +457,29 @@ class MorePanel extends StatelessWidget {
             ),
           ),
           ListTile(
-            onTap: () async => await menuActionHandler('block'),
+            onTap: () async => await menuActionHandler('blockLocal'),
             minLeadingWidth: 0,
             leading: const Icon(Icons.block, size: 19),
             title: Text(
-              '拉黑up主 「${videoItem.owner.name}」',
+              '拉黑UP主 「${videoItem.owner.name}」',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+          ),
+          ListTile(
+            onTap: () async => await menuActionHandler('keyword'),
+            minLeadingWidth: 0,
+            leading: const Icon(Icons.title, size: 19),
+            title: Text(
+              '屏蔽标题关键词',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+          ),
+          ListTile(
+            onTap: () async => await menuActionHandler('similar'),
+            minLeadingWidth: 0,
+            leading: const Icon(Icons.thumb_down_alt_outlined, size: 19),
+            title: Text(
+              '减少类似内容',
               style: Theme.of(context).textTheme.titleSmall,
             ),
           ),
@@ -409,14 +489,6 @@ class MorePanel extends StatelessWidget {
             leading: const Icon(Icons.watch_later_outlined, size: 19),
             title:
                 Text('添加至稍后再看', style: Theme.of(context).textTheme.titleSmall),
-          ),
-          ListTile(
-            onTap: () =>
-                imageSaveDialog(context, videoItem, SmartDialog.dismiss),
-            minLeadingWidth: 0,
-            leading: const Icon(Icons.photo_outlined, size: 19),
-            title:
-                Text('查看视频封面', style: Theme.of(context).textTheme.titleSmall),
           ),
           const SizedBox(height: 20),
         ],
