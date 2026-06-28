@@ -5,6 +5,7 @@ import 'package:hive/hive.dart';
 import 'package:pilipala/common/widgets/network_img_layer.dart';
 import 'package:pilipala/pages/mine/view.dart';
 import 'package:pilipala/utils/storage.dart';
+import 'package:pilipala/utils/update_controller.dart';
 
 Box userInfoCache = GStrorage.userInfo;
 
@@ -14,6 +15,28 @@ class HomeAppBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     var userInfo = userInfoCache.get('userInfoCache');
+    final UpdateController updateController = UpdateController.to;
+
+    void openMine() {
+      showModalBottomSheet(
+        context: context,
+        builder: (_) => const SizedBox(
+          height: 450,
+          child: MinePage(),
+        ),
+        clipBehavior: Clip.hardEdge,
+        isScrollControlled: true,
+      );
+    }
+
+    Future<void> handleAvatarTap() async {
+      if (updateController.hasUnreadUpdate.value) {
+        await updateController.openAboutUpdatePage();
+        return;
+      }
+      openMine();
+    }
+
     return SliverAppBar(
       // forceElevated: true,
       scrolledUnderElevation: 0,
@@ -58,35 +81,45 @@ class HomeAppBar extends StatelessWidget {
                     /// TODO
                     if (userInfo != null) ...[
                       GestureDetector(
-                        onTap: () => showModalBottomSheet(
-                          context: context,
-                          builder: (_) => const SizedBox(
-                            height: 450,
-                            child: MinePage(),
+                        onTap: handleAvatarTap,
+                        child: Obx(
+                          () => Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              NetworkImgLayer(
+                                type: 'avatar',
+                                width: 32,
+                                height: 32,
+                                src: userInfo.face,
+                              ),
+                              if (updateController.hasUnreadUpdate.value)
+                                const Positioned(
+                                  top: -1,
+                                  right: -1,
+                                  child: _UpdateDot(),
+                                ),
+                            ],
                           ),
-                          clipBehavior: Clip.hardEdge,
-                          isScrollControlled: true,
-                        ),
-                        child: NetworkImgLayer(
-                          type: 'avatar',
-                          width: 32,
-                          height: 32,
-                          src: userInfo.face,
                         ),
                       ),
                       const SizedBox(width: 10),
                     ] else ...[
-                      IconButton(
-                        onPressed: () => showModalBottomSheet(
-                          context: context,
-                          builder: (_) => const SizedBox(
-                            height: 450,
-                            child: MinePage(),
+                      Obx(
+                        () => IconButton(
+                          onPressed: handleAvatarTap,
+                          icon: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              const Icon(CupertinoIcons.person, size: 22),
+                              if (updateController.hasUnreadUpdate.value)
+                                const Positioned(
+                                  top: -4,
+                                  right: -5,
+                                  child: _UpdateDot(),
+                                ),
+                            ],
                           ),
-                          clipBehavior: Clip.hardEdge,
-                          isScrollControlled: true,
                         ),
-                        icon: const Icon(CupertinoIcons.person, size: 22),
                       ),
                     ],
 
@@ -99,6 +132,26 @@ class HomeAppBar extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _UpdateDot extends StatelessWidget {
+  const _UpdateDot();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 9,
+      height: 9,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.error,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: Theme.of(context).colorScheme.surface,
+          width: 1.5,
+        ),
       ),
     );
   }

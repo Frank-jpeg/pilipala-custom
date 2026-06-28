@@ -24,6 +24,7 @@ import 'package:pilipala/utils/global_data_cache.dart';
 import 'package:pilipala/utils/storage.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:pilipala/utils/recommend_filter.dart';
+import 'package:pilipala/utils/update_controller.dart';
 import 'package:catcher_2/catcher_2.dart';
 import './services/loggeer.dart';
 
@@ -36,6 +37,7 @@ void main() async {
   clearLogs();
   Request();
   await Request.setCookie();
+  Get.put(UpdateController(), permanent: true);
 
   // 异常捕获 logo记录
   final Catcher2Options releaseConfig = Catcher2Options(
@@ -270,6 +272,7 @@ class BuildMainApp extends StatelessWidget {
         RecommendFilter();
         Data.init();
         setupServiceLocator();
+        UpdateController.to.checkSilently();
       },
     );
   }

@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:pilipala/http/index.dart';
 import 'package:pilipala/models/github/latest.dart';
+import 'package:pilipala/utils/update_controller.dart';
 import 'package:pilipala/utils/utils.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../utils/cache_manage.dart';
@@ -241,6 +242,7 @@ class AboutController extends GetxController {
 
   // 检查更新
   Future checkUpdate() async {
+    UpdateController.to.markCurrentUpdateSeen();
     if (currentVersion.value.isEmpty) {
       await getCurrentApp();
     }

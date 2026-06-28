@@ -165,7 +165,10 @@ class LocalCacheKey {
 
       // 代理host port
       systemProxyHost = 'systemProxyHost',
-      systemProxyPort = 'systemProxyPort';
+      systemProxyPort = 'systemProxyPort',
+
+      // 已经用红点提醒过的更新版本
+      seenUpdateVersion = 'seenUpdateVersion';
 
   static const String isDisableBatteryOptLocal = 'isDisableBatteryOptLocal',
       isManufacturerBatteryOptimizationDisabled =

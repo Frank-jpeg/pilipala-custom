@@ -263,7 +263,7 @@ class _ExtraSettingState extends State<ExtraSetting> {
             title: '检查更新',
             subTitle: '每次启动时检查是否需要更新',
             setKey: SettingBoxKey.autoUpdate,
-            defaultVal: false,
+            defaultVal: true,
           ),
         ],
       ),

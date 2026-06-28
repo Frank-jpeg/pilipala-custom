@@ -7,6 +7,7 @@ import 'package:pilipala/common/constants.dart';
 import 'package:pilipala/common/widgets/network_img_layer.dart';
 import 'package:pilipala/models/common/theme_type.dart';
 import 'package:pilipala/models/user/info.dart';
+import 'package:pilipala/utils/update_controller.dart';
 import 'controller.dart';
 
 class MinePage extends StatefulWidget {
@@ -109,26 +110,71 @@ class _MinePageState extends State<MinePage> {
   }
 
   Widget userInfoBuild(_mineController, context) {
+    final UpdateController updateController = UpdateController.to;
+
     return Column(
       children: [
         const SizedBox(height: 5),
         GestureDetector(
-          onTap: () => _mineController.onLogin(),
-          child: ClipOval(
-            child: Container(
-              width: 85,
-              height: 85,
-              color: Theme.of(context).colorScheme.onInverseSurface,
-              child: Center(
-                child: _mineController.userInfo.value.face != null
-                    ? NetworkImgLayer(
-                        src: _mineController.userInfo.value.face,
-                        width: 85,
-                        height: 85)
-                    : Image.asset('assets/images/noface.jpeg'),
-              ),
+          onTap: () {
+            if (updateController.hasUnreadUpdate.value) {
+              updateController.openAboutUpdatePage();
+              return;
+            }
+            _mineController.onLogin();
+          },
+          child: Obx(
+            () => Stack(
+              clipBehavior: Clip.none,
+              children: [
+                ClipOval(
+                  child: Container(
+                    width: 85,
+                    height: 85,
+                    color: Theme.of(context).colorScheme.onInverseSurface,
+                    child: Center(
+                      child: _mineController.userInfo.value.face != null
+                          ? NetworkImgLayer(
+                              src: _mineController.userInfo.value.face,
+                              width: 85,
+                              height: 85)
+                          : Image.asset('assets/images/noface.jpeg'),
+                    ),
+                  ),
+                ),
+                if (updateController.hasUnreadUpdate.value)
+                  Positioned(
+                    top: 2,
+                    right: 2,
+                    child: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.error,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.surface,
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
+        ),
+        Obx(
+          () => updateController.hasUnreadUpdate.value
+              ? Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    '发现新版本，点击头像查看',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                  ),
+                )
+              : const SizedBox.shrink(),
         ),
         const SizedBox(height: 10),
         Row(
