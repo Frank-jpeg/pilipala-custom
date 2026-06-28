@@ -35,33 +35,26 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
-      - name: Configure release signing
+      - name: Configure CI signing
         shell: bash
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          if [[ -n "$KEYSTORE_BASE64" ]]; then
-            echo "$KEYSTORE_BASE64" | base64 -d > android/app/vvex.jks
-          fi
+          keytool -genkeypair \
+            -alias androiddebugkey \
+            -keypass android \
+            -keystore android/app/debug-ci.keystore \
+            -storepass android \
+            -dname "CN=Android Debug,O=Android,C=US" \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000
 
       - name: Build arm64 release APK
-        shell: bash
-        run: |
-          version_line="$(grep '^version:' pubspec.yaml | awk '{print $2}')"
-          version_name="${version_line%%+*}"
-          version_code="${version_line##*+}"
-          {
-            echo "flutter.sdk=$FLUTTER_ROOT"
-            echo "flutter.versionName=$version_name"
-            echo "flutter.versionCode=$version_code"
-          } > android/local.properties
-          chmod +x android/gradlew
-          cd android
-          ./gradlew :app:assembleRelease --stacktrace --no-daemon
+        run: flutter build apk --release --target-platform android-arm64 --verbose
         env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEYSTORE: ${{ github.workspace }}/android/app/debug-ci.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'android' }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'androiddebugkey' }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'android' }}
 
       - name: Read version
         id: version
