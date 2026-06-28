@@ -42,7 +42,7 @@ class LiveUsers {
 
   LiveUsers.fromJson(Map<String, dynamic> json) {
     count = dynamicInt(json['count']);
-    group = json['group'];
+    group = dynamicString(json['group']);
     items = json['items']
         .map<LiveUserItem>((e) => LiveUserItem.fromJson(e))
         .toList();
@@ -71,13 +71,13 @@ class LiveUserItem {
   String type = 'live';
 
   LiveUserItem.fromJson(Map<String, dynamic> json) {
-    face = json['face'];
+    face = dynamicString(json['face']);
     isReserveRecall = dynamicBool(json['is_reserve_recall']);
-    jumpUrl = json['jump_url'];
+    jumpUrl = dynamicString(json['jump_url']);
     mid = dynamicInt(json['mid']);
     roomId = dynamicInt(json['room_id']);
-    title = json['title'];
-    uname = json['uname'];
+    title = dynamicString(json['title']);
+    uname = dynamicString(json['uname']);
   }
 }
 
@@ -98,11 +98,11 @@ class UpItem {
   String type = 'up';
 
   UpItem.fromJson(Map<String, dynamic> json) {
-    face = json['face'];
+    face = dynamicString(json['face']);
     hasUpdate = dynamicBool(json['has_update']);
     isReserveRecall = dynamicBool(json['is_reserve_recall']);
     mid = dynamicInt(json['mid']);
-    uname = json['uname'];
+    uname = dynamicString(json['uname']);
   }
 }
 
@@ -118,8 +118,8 @@ class MyInfo {
   String? name;
 
   MyInfo.fromJson(Map<String, dynamic> json) {
-    face = json['face'];
+    face = dynamicString(json['face']);
     mid = dynamicInt(json['mid']);
-    name = json['name'];
+    name = dynamicString(json['name']);
   }
 }
