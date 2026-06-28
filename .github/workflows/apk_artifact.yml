@@ -1,0 +1,61 @@
+name: Android APK Artifact
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+      - "**.txt"
+      - ".idea/**"
+
+jobs:
+  android-apk:
+    name: Build Android arm64 APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: "17"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.19.6
+          channel: stable
+          cache: true
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Build arm64 release APK
+        run: flutter build apk --release --target-platform android-arm64 --split-per-abi
+
+      - name: Read version
+        id: version
+        shell: bash
+        run: |
+          version="$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d '+' -f 1)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Rename APK
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
+            "dist/pilipala-custom-${{ steps.version.outputs.version }}-${GITHUB_SHA::7}-arm64-v8a.apk"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pilipala-custom-android-arm64
+          path: dist/*.apk
+          if-no-files-found: error
+          retention-days: 14
