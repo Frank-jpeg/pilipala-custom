@@ -45,7 +45,19 @@ jobs:
           fi
 
       - name: Build arm64 release APK
-        run: flutter build apk --release --target-platform android-arm64
+        shell: bash
+        run: |
+          version_line="$(grep '^version:' pubspec.yaml | awk '{print $2}')"
+          version_name="${version_line%%+*}"
+          version_code="${version_line##*+}"
+          {
+            echo "flutter.sdk=$FLUTTER_ROOT"
+            echo "flutter.versionName=$version_name"
+            echo "flutter.versionCode=$version_code"
+          } > android/local.properties
+          chmod +x android/gradlew
+          cd android
+          ./gradlew :app:assembleRelease --stacktrace --no-daemon
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
