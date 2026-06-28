@@ -48,9 +48,21 @@ jobs:
             -keysize 2048 \
             -validity 10000
 
+      - name: Configure CI Gradle memory
+        shell: bash
+        run: |
+          {
+            echo ""
+            echo "# CI-only overrides for GitHub Actions runners"
+            echo "org.gradle.jvmargs=-Xmx4096M -XX:MaxMetaspaceSize=1024M -XX:+HeapDumpOnOutOfMemoryError"
+            echo "org.gradle.workers.max=1"
+            echo "kotlin.daemon.jvmargs=-Xmx1024M"
+          } >> android/gradle.properties
+
       - name: Build arm64 release APK
-        run: flutter build apk --release --target-platform android-arm64 --verbose
+        run: flutter build apk --release --target-platform android-arm64
         env:
+          JAVA_TOOL_OPTIONS: -Xmx4096M
           KEYSTORE: ${{ github.workspace }}/android/app/debug-ci.keystore
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'android' }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'androiddebugkey' }}
