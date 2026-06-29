@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:pilipala/tv/widgets/tv_focusable_button.dart';
 
 class TvSettingsPage extends StatelessWidget {
   const TvSettingsPage({super.key});
@@ -11,7 +12,8 @@ class TvSettingsPage extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            const Icon(Icons.settings_outlined, size: 64, color: Colors.white70),
+            const Icon(Icons.settings_outlined,
+                size: 64, color: Colors.white70),
             const SizedBox(height: 18),
             const Text(
               'TV 设置首版先保持极简',
@@ -23,9 +25,11 @@ class TvSettingsPage extends StatelessWidget {
               style: TextStyle(color: Colors.white70),
             ),
             const SizedBox(height: 22),
-            FilledButton(
+            TvFocusableButton(
+              autofocus: true,
+              icon: Icons.arrow_back,
+              label: '返回',
               onPressed: () => Get.back(),
-              child: const Text('返回'),
             ),
           ],
         ),

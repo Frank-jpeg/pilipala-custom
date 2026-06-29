@@ -17,13 +17,28 @@ class TvPlayerController extends GetxController {
   final RxnString error = RxnString();
   final RxnString title = RxnString();
 
-  String get bvid => Get.parameters['bvid'] ?? '';
-  int get cid => int.tryParse(Get.parameters['cid'] ?? '0') ?? 0;
-  int get recommendIndex => int.tryParse(Get.parameters['index'] ?? '0') ?? 0;
-  bool get isRecommendSource => Get.parameters['source'] == 'recommend';
+  String _bvid = '';
+  int _cid = 0;
+  int _aid = 0;
+  int _recommendIndex = 0;
+  bool _isRecommendSource = false;
+
+  String get bvid => _bvid;
+  int get cid => _cid;
+  int get aid => _aid;
+  int get recommendIndex => _recommendIndex;
+  bool get isRecommendSource => _isRecommendSource;
 
   Worker? _positionWorker;
   bool _switchingVideo = false;
+
+  void _readRouteParams() {
+    _bvid = Get.parameters['bvid'] ?? '';
+    _cid = int.tryParse(Get.parameters['cid'] ?? '0') ?? 0;
+    _aid = int.tryParse(Get.parameters['aid'] ?? '0') ?? 0;
+    _recommendIndex = int.tryParse(Get.parameters['index'] ?? '0') ?? 0;
+    _isRecommendSource = Get.parameters['source'] == 'recommend';
+  }
 
   Future<void> initPlayer() async {
     if (isRecommendSource && Get.isRegistered<TvHomeController>()) {
@@ -182,6 +197,7 @@ class TvPlayerController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    _readRouteParams();
     _watchAutoNext();
     initPlayer();
   }

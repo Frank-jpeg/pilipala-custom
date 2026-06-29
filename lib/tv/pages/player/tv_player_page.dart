@@ -60,9 +60,9 @@ class TvPlayerPage extends StatelessWidget {
           return KeyEventResult.ignored;
         },
         child: PopScope(
-          canPop: !controller.isRecommendSource,
+          canPop: false,
           onPopInvoked: (bool didPop) {
-            if (!didPop && controller.isRecommendSource) {
+            if (!didPop) {
               _exitPlayer(controller);
             }
           },
@@ -140,6 +140,14 @@ class TvPlayerPage extends StatelessWidget {
       Get.offAllNamed(TvRoutes.shell);
       return;
     }
-    Get.back();
+    final String bvid = controller.bvid;
+    if (bvid.isEmpty) {
+      Get.back();
+      return;
+    }
+    Get.offNamedUntil(
+      '${TvRoutes.video}?bvid=$bvid&cid=${controller.cid}&aid=${controller.aid}',
+      (route) => route.settings.name == TvRoutes.shell,
+    );
   }
 }

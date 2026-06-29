@@ -120,6 +120,7 @@ class _TvVideoPageState extends State<TvVideoPage> {
                                       'cid': '${controller.selectedCid.value}',
                                       'aid':
                                           '${controller.detail.value?.aid ?? controller.aidParam}',
+                                      'source': 'detail',
                                     },
                                   ),
                                 ),

@@ -41,6 +41,12 @@ class TvSearchController extends GetxController {
         keyword: value,
         page: 1,
       );
+      if (res is! Map) {
+        results.clear();
+        error.value = '搜索失败: 返回数据异常';
+        SmartDialog.showToast(error.value!);
+        return;
+      }
       if (res['status'] == true) {
         final dynamic data = res['data'];
         if (data is SearchVideoModel) {

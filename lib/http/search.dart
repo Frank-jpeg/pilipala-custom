@@ -88,8 +88,21 @@ class SearchHttp {
       if (tids != null && tids != -1) 'tids': tids,
     };
     var res = await Request().get(Api.searchByType, data: reqData);
-    if (res.data['code'] == 0) {
-      if (res.data['data']['numPages'] == 0) {
+    if (res.data is! Map) {
+      return {
+        'status': false,
+        'data': [],
+        'msg': '搜索返回异常',
+      };
+    }
+    final Map dataMap = res.data as Map;
+    if (dataMap['code'] == 0) {
+      if (dataMap['data'] is! Map) {
+        return {'status': true, 'data': Data()};
+      }
+      final Map<String, dynamic> searchData =
+          Map<String, dynamic>.from(dataMap['data'] as Map);
+      if (searchData['numPages'] == 0) {
         // 我想返回数据，使得可以通过data.list 取值，结果为[]
         return {'status': true, 'data': Data()};
       }
@@ -99,23 +112,25 @@ class SearchHttp {
           case SearchType.video:
             List<int> blackMidsList =
                 setting.get(SettingBoxKey.blackMidsList, defaultValue: [-1]);
-            for (var i in res.data['data']['result']) {
+            for (var i in searchData['result'] ?? []) {
               // 屏蔽推广和拉黑用户
-              i['available'] = !blackMidsList.contains(i['mid']);
+              if (i is Map) {
+                i['available'] = !blackMidsList.contains(i['mid']);
+              }
             }
-            data = SearchVideoModel.fromJson(res.data['data']);
+            data = SearchVideoModel.fromJson(searchData);
             break;
           case SearchType.live_room:
-            data = SearchLiveModel.fromJson(res.data['data']);
+            data = SearchLiveModel.fromJson(searchData);
             break;
           case SearchType.bili_user:
-            data = SearchUserModel.fromJson(res.data['data']);
+            data = SearchUserModel.fromJson(searchData);
             break;
           case SearchType.media_bangumi:
-            data = SearchMBangumiModel.fromJson(res.data['data']);
+            data = SearchMBangumiModel.fromJson(searchData);
             break;
           case SearchType.article:
-            data = SearchArticleModel.fromJson(res.data['data']);
+            data = SearchArticleModel.fromJson(searchData);
             break;
         }
         return {
@@ -123,13 +138,17 @@ class SearchHttp {
           'data': data,
         };
       } catch (err) {
-        print(err);
+        return {
+          'status': false,
+          'data': [],
+          'msg': '搜索解析失败: $err',
+        };
       }
     } else {
       return {
         'status': false,
         'data': [],
-        'msg': res.data['message'],
+        'msg': dataMap['message']?.toString() ?? '搜索失败',
       };
     }
   }
