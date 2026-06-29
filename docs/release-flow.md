@@ -49,6 +49,28 @@ Important guardrail:
 
 This guardrail was added after a false-positive success on `2026-06-28`: the workflow succeeded, but the uploaded artifact was actually the generic `app-release.apk` around 40 MB instead of the real arm64 split APK around 23 MB.
 
+## TV branch artifact workflow
+
+Workflow file:
+
+- `.github/workflows/tv_apk_artifact.yml`
+
+Current behavior:
+
+- triggers on push to `tv` or manual dispatch
+- builds Android TV arm64 only
+- uses the `tv` flavor
+- uses `lib/main_tv.dart`
+- uses `--split-per-abi`
+- verifies `build/app/outputs/flutter-apk/app-arm64-v8a-tv-release.apk`
+- uploads artifact `pilipala-custom-android-tv-arm64`
+
+The uploaded APK is renamed as:
+
+- `pilipala-custom-tv-<version>-<short-sha>-arm64-v8a.apk`
+
+TV artifacts are for manual sideload testing. They are not part of the mobile in-app update flow.
+
 ## App update flow
 
 The app checks for updates from GitHub Releases, not from Actions artifacts.

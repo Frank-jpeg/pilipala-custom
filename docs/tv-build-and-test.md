@@ -1,0 +1,129 @@
+# Android TV Build and Test Guide
+
+## Purpose
+
+The Android TV work lives on the `tv` branch and is isolated from the mobile `main` flow.
+It is currently a usable MVP for manual TV testing, not a published in-app update channel.
+
+## TV app shape
+
+- Flavor: `tv`
+- Entry point: `lib/main_tv.dart`
+- Package/application id: `com.guozhigq.pilipala.custom.tv`
+- Main TV UI: `lib/tv/`
+- GitHub Actions workflow: `.github/workflows/tv_apk_artifact.yml`
+- CI artifact name: `pilipala-custom-android-tv-arm64`
+- CI APK filename pattern: `pilipala-custom-tv-<version>-<sha>-arm64-v8a.apk`
+
+The TV home page is an immersive recommendation feed:
+
+- top category rail
+- left vertical recommendation queue
+- large background artwork for the selected video
+- DPAD up/down switches recommendations
+- OK enters full-screen playback
+- left opens details
+- after 15 seconds idle on a recommendation, it enters full-screen playback
+- from recommendation playback, DPAD up/down switches previous/next recommendation
+
+## API sources
+
+The TV MVP reuses the existing project API layer.
+
+- Home recommendation currently uses the app feed endpoint: `https://app.bilibili.com/x/v2/feed/index`.
+- Video details use Web API: `https://api.bilibili.com/x/web-interface/view`.
+- Playback uses WBI Web API: `https://api.bilibili.com/x/player/wbi/playurl`.
+- Login QR in the TV UI currently uses the existing Web QR login flow.
+
+Reference projects checked on 2026-06-29:
+
+- `kkkunny/bilitv`: primarily uses Web/WBI APIs for recommendation, search, details, playback, QR login, history, and dynamic feeds.
+- `xiaye13579/BBLL`: public repo contains README only; the latest release APK string scan shows Web/WBI API usage such as `x/web-interface/*`, `x/player/wbi/playurl`, Web QR login, history, favorites, and dynamic endpoints. No clear TV-only API source was visible from the public repo/APK string scan.
+
+## Local build commands
+
+Use the pinned Flutter SDK:
+
+```powershell
+$env:MEDIA_KIT_ANDROID_VIDEO_ARM64_JAR='C:\Users\Lan\Desktop\default-arm64-v8a.jar'
+& 'G:\Dev\flutter_3.19.6\bin\flutter.bat' build apk --release --flavor tv -t lib/main_tv.dart --target-platform android-arm64 --split-per-abi
+```
+
+Expected output:
+
+- `build/app/outputs/flutter-apk/app-arm64-v8a-tv-release.apk`
+
+For the Google TV emulator:
+
+```powershell
+$env:MEDIA_KIT_ANDROID_VIDEO_ARM64_JAR='C:\Users\Lan\Desktop\default-arm64-v8a.jar'
+$env:MEDIA_KIT_ANDROID_VIDEO_X64_JAR='C:\Users\Lan\Desktop\default-x86_64.jar'
+& 'G:\Dev\flutter_3.19.6\bin\flutter.bat' build apk --debug --flavor tv -t lib/main_tv.dart --target-platform android-x64
+```
+
+Expected output:
+
+- `build/app/outputs/flutter-apk/app-tv-debug.apk`
+
+## Emulator setup
+
+Installed local emulator setup:
+
+- SDK root: `G:\Android\Sdk`
+- AVD home: `G:\Android\avd`
+- AVD name: `PiliPala_Google_TV_API_36`
+- System image: `system-images;android-36;google-tv;x86_64`
+- Device template: `tv_1080p`
+
+Start it with:
+
+```powershell
+$env:ANDROID_AVD_HOME='G:\Android\avd'
+$env:ANDROID_SDK_ROOT='G:\Android\Sdk'
+Start-Process -FilePath 'G:\Android\Sdk\emulator\emulator.exe' -ArgumentList @('-avd','PiliPala_Google_TV_API_36','-gpu','auto') -WindowStyle Hidden
+```
+
+Install and launch:
+
+```powershell
+& 'G:\Android\Sdk\platform-tools\adb.exe' -s emulator-5554 install -r 'build\app\outputs\flutter-apk\app-tv-debug.apk'
+& 'G:\Android\Sdk\platform-tools\adb.exe' -s emulator-5554 shell am start -n com.guozhigq.pilipala.custom.tv/com.guozhigq.pilipala.MainActivity
+```
+
+DPAD smoke commands:
+
+```powershell
+& 'G:\Android\Sdk\platform-tools\adb.exe' -s emulator-5554 shell input keyevent 20  # down
+& 'G:\Android\Sdk\platform-tools\adb.exe' -s emulator-5554 shell input keyevent 19  # up
+& 'G:\Android\Sdk\platform-tools\adb.exe' -s emulator-5554 shell input keyevent 23  # OK
+& 'G:\Android\Sdk\platform-tools\adb.exe' -s emulator-5554 shell input keyevent 4   # back
+```
+
+## Emulator limitations
+
+The Google TV emulator is useful for:
+
+- launcher/activity startup
+- Android TV manifest and Leanback environment
+- DPAD focus and navigation
+- API parsing and Flutter runtime exceptions
+- basic full-screen player route behavior
+
+It is not enough to sign off video playback quality. During 2026-06-29 testing, the emulator could request playback URLs and enter the player, but video output was black on some runs. This can be an emulator/software-rendering/media_kit limitation and must be checked on a real Android TV or TV box before calling playback done.
+
+## Real-device test checklist
+
+Use the latest `tv` branch artifact from GitHub Actions or the local arm64 release APK.
+
+1. Install the TV APK on a real Android TV or TV box.
+2. Confirm the app appears in the TV launcher.
+3. Open the app and confirm the immersive recommendation page loads.
+4. Use DPAD up/down to switch recommendations.
+5. Wait 15 seconds on a recommendation and confirm it enters full-screen playback.
+6. Press OK on a recommendation and confirm full-screen playback opens.
+7. In recommendation playback, use DPAD up/down to switch videos.
+8. Press Back and confirm it returns to the recommendation page, not the TV launcher.
+9. Confirm real playback has video and audio.
+10. Test Web QR login if account-only flows are needed.
+
+If real-device playback is black, treat it as a player/play-url compatibility bug and inspect `TvPlayerController` plus the shared `PlPlayerController`/`media_kit` integration first.
