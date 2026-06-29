@@ -17,10 +17,20 @@ class TvVideoController extends GetxController {
   final RxBool hasWatchLater = false.obs;
   final RxList<FavFolderItemData> favFolders = <FavFolderItemData>[].obs;
 
-  String get bvid => Get.parameters['bvid'] ?? '';
-  int get cidParam => int.tryParse(Get.parameters['cid'] ?? '0') ?? 0;
-  int get aidParam => int.tryParse(Get.parameters['aid'] ?? '0') ?? 0;
+  String _bvid = '';
+  int _cidParam = 0;
+  int _aidParam = 0;
+
+  String get bvid => _bvid;
+  int get cidParam => _cidParam;
+  int get aidParam => _aidParam;
   bool get isLogin => Get.find<TvSessionController>().isLogin.value;
+
+  void _readRouteParams() {
+    _bvid = Get.parameters['bvid'] ?? '';
+    _cidParam = int.tryParse(Get.parameters['cid'] ?? '0') ?? 0;
+    _aidParam = int.tryParse(Get.parameters['aid'] ?? '0') ?? 0;
+  }
 
   Future<void> load() async {
     loading.value = true;
@@ -146,6 +156,7 @@ class TvVideoController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    _readRouteParams();
     load();
   }
 }

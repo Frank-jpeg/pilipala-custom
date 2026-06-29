@@ -1,3 +1,4 @@
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:pilipala/http/user.dart';
 import 'package:pilipala/models/model_hot_video_item.dart';
@@ -48,7 +49,8 @@ class TvLibraryController extends GetxController {
 
       if (userInfoRes['status'] == true && userInfoRes['data']?.mid != null) {
         final int mid = userInfoRes['data'].mid as int;
-        final dynamic favRes = await UserHttp.userfavFolder(pn: 1, ps: 20, mid: mid);
+        final dynamic favRes =
+            await UserHttp.userfavFolder(pn: 1, ps: 20, mid: mid);
         if (favRes['status'] == true) {
           final FavFolderData data = favRes['data'] as FavFolderData;
           favFolders.value = data.list ?? <FavFolderItemData>[];
@@ -71,14 +73,21 @@ class TvLibraryController extends GetxController {
       return;
     }
     selectedFavFolderId.value = mediaId;
-    final dynamic res = await UserHttp.userFavFolderDetail(
-      mediaId: mediaId,
-      pn: 1,
-      ps: 20,
-    );
-    if (res['status'] == true) {
-      final FavDetailData data = res['data'] as FavDetailData;
-      favVideos.value = data.medias ?? <FavDetailItemData>[];
+    try {
+      final dynamic res = await UserHttp.userFavFolderDetail(
+        mediaId: mediaId,
+        pn: 1,
+        ps: 20,
+      );
+      if (res['status'] == true) {
+        final FavDetailData data = res['data'] as FavDetailData;
+        favVideos.value = data.medias ?? <FavDetailItemData>[];
+      } else {
+        final String message = res['msg']?.toString() ?? '加载收藏夹失败';
+        SmartDialog.showToast(message);
+      }
+    } catch (e) {
+      SmartDialog.showToast('加载收藏夹失败: $e');
     }
   }
 
