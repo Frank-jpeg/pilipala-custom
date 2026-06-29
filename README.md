@@ -123,6 +123,8 @@ QQ 频道: https://pd.qq.com/s/365esodk3
 
 可以通过右侧 Releases 进行下载或拉取代码到本地进行编译
 
+当前这个 fork 的 App 内更新只认 GitHub Release，不认 GitHub Actions artifact。Actions 里的 APK 产物适合手动下载测试，不会自动出现在 App 的更新检查里。
+
 ### 从 F-Droid 安装
 
 <a href="https://f-droid.org/packages/com.guozhigq.pilipala">
