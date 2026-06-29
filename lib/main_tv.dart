@@ -13,6 +13,7 @@ import 'package:pilipala/tv/tv_app.dart';
 import 'package:pilipala/utils/app_scheme.dart';
 import 'package:pilipala/utils/data.dart';
 import 'package:pilipala/utils/global_data_cache.dart';
+import 'package:pilipala/utils/recommend_filter.dart';
 import 'package:pilipala/utils/storage.dart';
 
 import 'services/loggeer.dart';
@@ -45,6 +46,7 @@ void main() async {
   await GlobalDataCache().initialize();
   await setupServiceLocator();
   await Data.init();
+  RecommendFilter();
   Get.put<TvSessionController>(TvSessionController(), permanent: true);
 
   final Catcher2Options releaseConfig = Catcher2Options(

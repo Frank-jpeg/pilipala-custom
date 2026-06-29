@@ -29,7 +29,15 @@ class TvVideoController extends GetxController {
       final dynamic res = await VideoHttp.videoIntro(bvid: bvid);
       if (res['status'] == true) {
         detail.value = res['data'] as VideoDetailData;
-        selectedCid.value = cidParam > 0 ? cidParam : (detail.value?.cid ?? 0);
+        final int firstPageCid = detail.value?.pages
+                ?.firstWhereOrNull((part) => (part.cid ?? 0) > 0)
+                ?.cid ??
+            0;
+        selectedCid.value = cidParam > 0
+            ? cidParam
+            : (detail.value?.cid ?? 0) > 0
+                ? detail.value!.cid!
+                : firstPageCid;
         if (isLogin) {
           await Future.wait(<Future<void>>[
             loadFavStatus(),
@@ -65,7 +73,8 @@ class TvVideoController extends GetxController {
       hasFav.value = false;
       return;
     }
-    final dynamic res = await VideoHttp.hasFavVideo(aid: detail.value?.aid ?? aidParam);
+    final dynamic res =
+        await VideoHttp.hasFavVideo(aid: detail.value?.aid ?? aidParam);
     if (res['status'] == true) {
       hasFav.value = res['data']['favoured'] == true;
     }
