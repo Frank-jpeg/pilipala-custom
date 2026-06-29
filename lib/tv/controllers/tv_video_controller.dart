@@ -7,6 +7,7 @@ import 'package:pilipala/models/video/play/quality.dart';
 import 'package:pilipala/models/video/play/url.dart';
 import 'package:pilipala/models/video_detail_res.dart';
 import 'package:pilipala/tv/controllers/tv_session_controller.dart';
+import 'package:pilipala/tv/tv_routes.dart';
 
 class TvVideoController extends GetxController {
   final RxBool loading = false.obs;
@@ -94,18 +95,40 @@ class TvVideoController extends GetxController {
     if (!isLogin) {
       return;
     }
-    final dynamic userRes = await UserHttp.userInfo();
-    if (userRes['status'] == true && userRes['data']?.mid != null) {
-      final dynamic res = await UserHttp.userfavFolder(
-        pn: 1,
-        ps: 20,
-        mid: userRes['data'].mid as int,
-      );
-      if (res['status'] == true) {
-        final FavFolderData data = res['data'] as FavFolderData;
-        favFolders.value = data.list ?? <FavFolderItemData>[];
+    try {
+      final dynamic userRes = await UserHttp.userInfo();
+      if (userRes['status'] == true && userRes['data']?.mid != null) {
+        final dynamic res = await UserHttp.userfavFolder(
+          pn: 1,
+          ps: 20,
+          mid: userRes['data'].mid as int,
+        );
+        if (res['status'] == true) {
+          final FavFolderData data = res['data'] as FavFolderData;
+          favFolders.value = data.list ?? <FavFolderItemData>[];
+        }
       }
+    } catch (e) {
+      SmartDialog.showToast('加载收藏夹失败: $e');
     }
+  }
+
+  void playSelected() {
+    final int cid = selectedCid.value;
+    final int aid = detail.value?.aid ?? aidParam;
+    if (bvid.isEmpty || cid <= 0) {
+      SmartDialog.showToast('当前视频暂时不能播放');
+      return;
+    }
+    Get.toNamed(
+      TvRoutes.player,
+      parameters: <String, String>{
+        'bvid': bvid,
+        'cid': '$cid',
+        'aid': '$aid',
+        'source': 'detail',
+      },
+    );
   }
 
   Future<void> toggleWatchLater() async {
@@ -113,13 +136,22 @@ class TvVideoController extends GetxController {
       SmartDialog.showToast('请先登录');
       return;
     }
-    final dynamic res = await UserHttp.toViewLater(
-      bvid: bvid,
-      aid: detail.value?.aid ?? aidParam,
-    );
-    SmartDialog.showToast(res['msg']?.toString() ?? '操作完成');
-    if (res['status'] == true) {
-      hasWatchLater.value = true;
+    final int aid = detail.value?.aid ?? aidParam;
+    if (bvid.isEmpty || aid <= 0) {
+      SmartDialog.showToast('视频参数缺失');
+      return;
+    }
+    try {
+      final dynamic res = await UserHttp.toViewLater(
+        bvid: bvid,
+        aid: aid,
+      );
+      SmartDialog.showToast(res['msg']?.toString() ?? '操作完成');
+      if (res['status'] == true) {
+        hasWatchLater.value = true;
+      }
+    } catch (e) {
+      SmartDialog.showToast('稍后再看失败: $e');
     }
   }
 
@@ -136,20 +168,33 @@ class TvVideoController extends GetxController {
       return;
     }
     final int folderId = favFolders.first.id ?? 0;
-    final dynamic res = await VideoHttp.favVideo(
-      aid: detail.value?.aid ?? aidParam,
-      addIds: hasFav.value ? '' : '$folderId',
-      delIds: hasFav.value ? '$folderId' : '',
-    );
-    if (res['status'] == true) {
-      hasFav.value = !hasFav.value;
-      SmartDialog.showToast(hasFav.value ? '已收藏' : '已取消收藏');
-    } else {
-      SmartDialog.showToast(res['msg']?.toString() ?? '收藏失败');
+    final int aid = detail.value?.aid ?? aidParam;
+    if (folderId <= 0 || aid <= 0) {
+      SmartDialog.showToast('收藏参数缺失');
+      return;
+    }
+    try {
+      final dynamic res = await VideoHttp.favVideo(
+        aid: aid,
+        addIds: hasFav.value ? '' : '$folderId',
+        delIds: hasFav.value ? '$folderId' : '',
+      );
+      if (res['status'] == true) {
+        hasFav.value = !hasFav.value;
+        SmartDialog.showToast(hasFav.value ? '已收藏' : '已取消收藏');
+      } else {
+        SmartDialog.showToast(res['msg']?.toString() ?? '收藏失败');
+      }
+    } catch (e) {
+      SmartDialog.showToast('收藏失败: $e');
     }
   }
 
   void selectCid(int cid) {
+    if (cid <= 0) {
+      SmartDialog.showToast('分P参数无效');
+      return;
+    }
     selectedCid.value = cid;
   }
 

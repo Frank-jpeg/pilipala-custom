@@ -18,6 +18,10 @@ class _TvSearchPageState extends State<TvSearchPage> {
   final TvSearchController _controller = Get.put(TvSearchController());
   final TextEditingController _textController = TextEditingController();
 
+  void _runSearch() {
+    _controller.search(_textController.text);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -28,11 +32,12 @@ class _TvSearchPageState extends State<TvSearchPage> {
             children: <Widget>[
               Row(
                 children: <Widget>[
-                  IconButton(
-                    onPressed: () => Get.back(),
-                    icon: const Icon(Icons.arrow_back),
+                  TvFocusableButton(
+                    label: '返回',
+                    icon: Icons.arrow_back,
+                    onPressed: Get.back,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 16),
                   Text(
                     '搜索',
                     style: Theme.of(context).textTheme.displaySmall?.copyWith(
@@ -43,17 +48,26 @@ class _TvSearchPageState extends State<TvSearchPage> {
                 ],
               ),
               const SizedBox(height: 24),
-              TextField(
-                controller: _textController,
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText: '输入视频关键词',
-                  suffixIcon: IconButton(
-                    onPressed: () => _controller.search(_textController.text),
-                    icon: const Icon(Icons.search),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: <Widget>[
+                  Expanded(
+                    child: TextField(
+                      controller: _textController,
+                      autofocus: true,
+                      decoration: const InputDecoration(
+                        hintText: '输入视频关键词',
+                      ),
+                      onSubmitted: _controller.search,
+                    ),
                   ),
-                ),
-                onSubmitted: _controller.search,
+                  const SizedBox(width: 16),
+                  TvFocusableButton(
+                    label: '搜索',
+                    icon: Icons.search,
+                    onPressed: _runSearch,
+                  ),
+                ],
               ),
               const SizedBox(height: 24),
               if (_controller.hotItems.isNotEmpty) ...<Widget>[
@@ -104,5 +118,11 @@ class _TvSearchPageState extends State<TvSearchPage> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    super.dispose();
   }
 }

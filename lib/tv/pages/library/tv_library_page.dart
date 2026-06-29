@@ -21,22 +21,50 @@ class TvLibraryPage extends StatelessWidget {
         child: Obx(
           () {
             if (!session.isLogin.value) {
-              return Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    const Icon(Icons.qr_code_2, size: 64, color: Colors.white70),
-                    const SizedBox(height: 18),
-                    const Text('登录后可查看历史、收藏和稍后再看'),
-                    const SizedBox(height: 18),
-                    TvFocusableButton(
-                      label: '去登录',
-                      icon: Icons.login,
-                      autofocus: true,
-                      onPressed: () => Get.toNamed(TvRoutes.login),
+              return Column(
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      TvFocusableButton(
+                        label: '返回',
+                        icon: Icons.arrow_back,
+                        onPressed: Get.back,
+                      ),
+                      const SizedBox(width: 16),
+                      Text(
+                        '媒体库',
+                        style:
+                            Theme.of(context).textTheme.displaySmall?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                      ),
+                    ],
+                  ),
+                  Expanded(
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          const Icon(
+                            Icons.qr_code_2,
+                            size: 64,
+                            color: Colors.white70,
+                          ),
+                          const SizedBox(height: 18),
+                          const Text('登录后可查看历史、收藏和稍后再看'),
+                          const SizedBox(height: 18),
+                          TvFocusableButton(
+                            label: '去登录',
+                            icon: Icons.login,
+                            autofocus: true,
+                            onPressed: () => Get.toNamed(TvRoutes.login),
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               );
             }
             return TvAsyncState(
@@ -47,17 +75,19 @@ class TvLibraryPage extends StatelessWidget {
                 children: <Widget>[
                   Row(
                     children: <Widget>[
-                      IconButton(
-                        onPressed: () => Get.back(),
-                        icon: const Icon(Icons.arrow_back),
+                      TvFocusableButton(
+                        label: '返回',
+                        icon: Icons.arrow_back,
+                        onPressed: Get.back,
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 16),
                       Text(
                         '媒体库',
-                        style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                            ),
+                        style:
+                            Theme.of(context).textTheme.displaySmall?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                ),
                       ),
                     ],
                   ),
@@ -91,7 +121,8 @@ class TvLibraryPage extends StatelessWidget {
                   if (controller.favFolders.isNotEmpty) ...<Widget>[
                     const Text(
                       '收藏夹',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 14),
                     Wrap(
@@ -100,7 +131,8 @@ class TvLibraryPage extends StatelessWidget {
                       children: controller.favFolders.map((folder) {
                         return TvFocusableButton(
                           label: folder.title ?? '未命名收藏夹',
-                          onPressed: () => controller.loadFavFolder(folder.id ?? 0),
+                          onPressed: () =>
+                              controller.loadFavFolder(folder.id ?? 0),
                         );
                       }).toList(),
                     ),

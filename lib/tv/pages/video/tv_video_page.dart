@@ -2,7 +2,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:pilipala/tv/controllers/tv_video_controller.dart';
-import 'package:pilipala/tv/tv_routes.dart';
 import 'package:pilipala/tv/utils/tv_formatters.dart';
 import 'package:pilipala/tv/widgets/tv_async_state.dart';
 import 'package:pilipala/tv/widgets/tv_focusable_button.dart';
@@ -43,11 +42,12 @@ class _TvVideoPageState extends State<TvVideoPage> {
                 children: <Widget>[
                   Row(
                     children: <Widget>[
-                      IconButton(
-                        onPressed: () => Get.back(),
-                        icon: const Icon(Icons.arrow_back),
+                      TvFocusableButton(
+                        label: '返回',
+                        icon: Icons.arrow_back,
+                        onPressed: Get.back,
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 16),
                       Expanded(
                         child: Text(
                           controller.detail.value?.title ?? '',
@@ -113,16 +113,7 @@ class _TvVideoPageState extends State<TvVideoPage> {
                                   label: '播放',
                                   icon: Icons.play_arrow_rounded,
                                   autofocus: true,
-                                  onPressed: () => Get.toNamed(
-                                    TvRoutes.player,
-                                    parameters: <String, String>{
-                                      'bvid': controller.bvid,
-                                      'cid': '${controller.selectedCid.value}',
-                                      'aid':
-                                          '${controller.detail.value?.aid ?? controller.aidParam}',
-                                      'source': 'detail',
-                                    },
-                                  ),
+                                  onPressed: controller.playSelected,
                                 ),
                                 TvFocusableButton(
                                   label:
