@@ -18,6 +18,7 @@ class TvHomeController extends GetxController {
   final RxBool autoFullscreenArmed = false.obs;
 
   Timer? _fullscreenTimer;
+  int _fullscreenGeneration = 0;
 
   bool get autoFullscreenEnabled => GStrorage.setting
       .get(SettingBoxKey.tvAutoFullscreenEnable, defaultValue: true) as bool;
@@ -122,13 +123,26 @@ class TvHomeController extends GetxController {
         Get.currentRoute != TvRoutes.shell) {
       return;
     }
+    final int generation = ++_fullscreenGeneration;
     Future<void>.delayed(Duration.zero, () {
-      if (isClosed || _fullscreenTimer != null) {
+      if (isClosed ||
+          _fullscreenTimer != null ||
+          generation != _fullscreenGeneration ||
+          !autoFullscreenEnabled ||
+          items.isEmpty ||
+          Get.currentRoute != TvRoutes.shell) {
         return;
       }
       autoFullscreenArmed.value = true;
       _fullscreenTimer =
           Timer(Duration(seconds: autoFullscreenDelaySeconds), () {
+        if (generation != _fullscreenGeneration ||
+            !autoFullscreenEnabled ||
+            items.isEmpty ||
+            Get.currentRoute != TvRoutes.shell) {
+          autoFullscreenArmed.value = false;
+          return;
+        }
         autoFullscreenArmed.value = false;
         playSelected(immersive: true);
       });
@@ -136,6 +150,7 @@ class TvHomeController extends GetxController {
   }
 
   void cancelAutoFullscreen() {
+    _fullscreenGeneration++;
     _fullscreenTimer?.cancel();
     _fullscreenTimer = null;
     autoFullscreenArmed.value = false;
