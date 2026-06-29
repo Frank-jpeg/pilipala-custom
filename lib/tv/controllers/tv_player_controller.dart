@@ -6,6 +6,8 @@ import 'package:pilipala/models/video/play/quality.dart';
 import 'package:pilipala/models/video/play/url.dart';
 import 'package:pilipala/plugin/pl_player/controller.dart';
 import 'package:pilipala/plugin/pl_player/models/data_source.dart';
+import 'package:pilipala/tv/controllers/tv_home_controller.dart';
+import 'package:pilipala/tv/models/tv_video_card_data.dart';
 
 class TvPlayerController extends GetxController {
   final PlPlayerController player = PlPlayerController(videoType: 'archive');
@@ -13,13 +15,32 @@ class TvPlayerController extends GetxController {
   final RxBool controlsVisible = true.obs;
   final RxDouble volume = 1.0.obs;
   final RxnString error = RxnString();
+  final RxnString title = RxnString();
 
   String get bvid => Get.parameters['bvid'] ?? '';
   int get cid => int.tryParse(Get.parameters['cid'] ?? '0') ?? 0;
+  int get recommendIndex => int.tryParse(Get.parameters['index'] ?? '0') ?? 0;
+  bool get isRecommendSource => Get.parameters['source'] == 'recommend';
+
+  Worker? _positionWorker;
+  bool _switchingVideo = false;
 
   Future<void> initPlayer() async {
+    if (isRecommendSource && Get.isRegistered<TvHomeController>()) {
+      await playRecommendIndex(recommendIndex);
+      return;
+    }
+    await playByParams(bvid: bvid, cid: cid);
+  }
+
+  Future<void> playByParams({
+    required String bvid,
+    required int cid,
+    String? title,
+  }) async {
     loading.value = true;
     error.value = null;
+    this.title.value = title;
     try {
       if (bvid.isEmpty || cid <= 0) {
         error.value = '播放参数缺失';
@@ -45,8 +66,9 @@ class TvPlayerController extends GetxController {
                   ? dashVideos.first.baseUrl
                   : null) ??
           '';
-      final String audioUrl =
-          dashAudios != null && dashAudios.isNotEmpty ? dashAudios.first.baseUrl ?? '' : '';
+      final String audioUrl = dashAudios != null && dashAudios.isNotEmpty
+          ? dashAudios.first.baseUrl ?? ''
+          : '';
       if (videoUrl.isEmpty) {
         error.value = '播放地址为空';
         return;
@@ -77,6 +99,44 @@ class TvPlayerController extends GetxController {
     }
   }
 
+  Future<void> playRecommendIndex(int index) async {
+    if (!Get.isRegistered<TvHomeController>()) {
+      return;
+    }
+    final TvHomeController home = Get.find<TvHomeController>();
+    if (home.videos.isEmpty) {
+      error.value = '推荐列表为空';
+      loading.value = false;
+      return;
+    }
+    home.selectIndex(index, schedule: false);
+    final TvVideoCardData? data = home.selectedVideo;
+    if (data == null) {
+      error.value = '推荐视频不存在';
+      loading.value = false;
+      return;
+    }
+    await playByParams(bvid: data.bvid, cid: data.cid, title: data.title);
+  }
+
+  Future<void> playNextRecommend() async {
+    if (!isRecommendSource || !Get.isRegistered<TvHomeController>()) {
+      return;
+    }
+    final TvHomeController home = Get.find<TvHomeController>();
+    home.selectNext(schedule: false);
+    await playRecommendIndex(home.selectedIndex.value);
+  }
+
+  Future<void> playPreviousRecommend() async {
+    if (!isRecommendSource || !Get.isRegistered<TvHomeController>()) {
+      return;
+    }
+    final TvHomeController home = Get.find<TvHomeController>();
+    home.selectPrevious(schedule: false);
+    await playRecommendIndex(home.selectedIndex.value);
+  }
+
   Future<void> togglePlay() async {
     await player.togglePlay();
     controlsVisible.value = true;
@@ -100,14 +160,35 @@ class TvPlayerController extends GetxController {
     player.controls = controlsVisible.value;
   }
 
+  void _watchAutoNext() {
+    if (!isRecommendSource) {
+      return;
+    }
+    _positionWorker = ever<Duration>(player.position, (Duration position) {
+      final Duration duration = player.duration.value;
+      if (_switchingVideo ||
+          loading.value ||
+          duration.inSeconds < 10 ||
+          position.inSeconds < duration.inSeconds - 2) {
+        return;
+      }
+      _switchingVideo = true;
+      playNextRecommend().whenComplete(() {
+        _switchingVideo = false;
+      });
+    });
+  }
+
   @override
   void onInit() {
     super.onInit();
+    _watchAutoNext();
     initPlayer();
   }
 
   @override
   void onClose() {
+    _positionWorker?.dispose();
     player.dispose();
     super.onClose();
   }

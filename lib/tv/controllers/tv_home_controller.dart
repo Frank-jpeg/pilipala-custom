@@ -1,13 +1,33 @@
+import 'dart:async';
+
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:pilipala/http/video.dart';
 import 'package:pilipala/models/home/rcmd/result.dart';
 import 'package:pilipala/tv/controllers/tv_session_controller.dart';
+import 'package:pilipala/tv/models/tv_video_card_data.dart';
+import 'package:pilipala/tv/tv_routes.dart';
+import 'package:pilipala/tv/utils/tv_video_mapper.dart';
 
 class TvHomeController extends GetxController {
   final RxList<RecVideoItemAppModel> items = <RecVideoItemAppModel>[].obs;
   final RxBool loading = false.obs;
   final RxnString error = RxnString();
+  final RxInt selectedIndex = 0.obs;
+  final RxBool autoFullscreenArmed = false.obs;
+
+  Timer? _fullscreenTimer;
+
+  List<TvVideoCardData> get videos =>
+      items.map(TvVideoMapper.fromRcmd).toList(growable: false);
+
+  TvVideoCardData? get selectedVideo {
+    final List<TvVideoCardData> list = videos;
+    if (list.isEmpty) {
+      return null;
+    }
+    return list[selectedIndex.value.clamp(0, list.length - 1)];
+  }
 
   Future<void> load() async {
     loading.value = true;
@@ -20,6 +40,10 @@ class TvHomeController extends GetxController {
       );
       if (res['status'] == true) {
         items.value = List<RecVideoItemAppModel>.from(res['data'] as List);
+        if (items.isNotEmpty) {
+          selectedIndex.value = 0;
+          scheduleAutoFullscreen();
+        }
       } else {
         error.value = res['msg']?.toString() ?? '加载推荐失败';
       }
@@ -31,9 +55,85 @@ class TvHomeController extends GetxController {
     }
   }
 
+  void selectIndex(int index, {bool schedule = true}) {
+    if (items.isEmpty) {
+      selectedIndex.value = 0;
+      return;
+    }
+    selectedIndex.value = index.clamp(0, items.length - 1);
+    if (schedule) {
+      scheduleAutoFullscreen();
+    }
+  }
+
+  void selectNext({bool schedule = true}) {
+    if (items.isEmpty) {
+      return;
+    }
+    selectIndex((selectedIndex.value + 1) % items.length, schedule: schedule);
+  }
+
+  void selectPrevious({bool schedule = true}) {
+    if (items.isEmpty) {
+      return;
+    }
+    selectIndex(
+      selectedIndex.value == 0 ? items.length - 1 : selectedIndex.value - 1,
+      schedule: schedule,
+    );
+  }
+
+  void openSelectedDetail() {
+    final TvVideoCardData? data = selectedVideo;
+    if (data == null || data.bvid.isEmpty) {
+      return;
+    }
+    cancelAutoFullscreen();
+    Get.toNamed(
+      '${TvRoutes.video}?bvid=${data.bvid}&cid=${data.cid}&aid=${data.aid}',
+    )?.whenComplete(scheduleAutoFullscreen);
+  }
+
+  void playSelected({bool immersive = false}) {
+    final TvVideoCardData? data = selectedVideo;
+    if (data == null || data.bvid.isEmpty || data.cid <= 0) {
+      return;
+    }
+    cancelAutoFullscreen();
+    Get.toNamed(
+      '${TvRoutes.player}?bvid=${data.bvid}&cid=${data.cid}&aid=${data.aid}&source=recommend&index=${selectedIndex.value}',
+    )?.whenComplete(scheduleAutoFullscreen);
+  }
+
+  void scheduleAutoFullscreen() {
+    cancelAutoFullscreen();
+    Future<void>.delayed(Duration.zero, () {
+      if (isClosed || _fullscreenTimer != null) {
+        return;
+      }
+      autoFullscreenArmed.value = true;
+      _fullscreenTimer = Timer(const Duration(seconds: 15), () {
+        autoFullscreenArmed.value = false;
+        playSelected(immersive: true);
+      });
+    });
+  }
+
+  void cancelAutoFullscreen() {
+    _fullscreenTimer?.cancel();
+    _fullscreenTimer = null;
+    autoFullscreenArmed.value = false;
+  }
+
   @override
   void onInit() {
     super.onInit();
     load();
+  }
+
+  @override
+  void onClose() {
+    cancelAutoFullscreen();
+    super.onClose();
   }
 }
