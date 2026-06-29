@@ -15,7 +15,8 @@ class TvLoginController extends GetxController {
   final RxString qrUrl = ''.obs;
   final RxnString error = RxnString();
   Timer? pollTimer;
-  late String qrcodeKey;
+  String? qrcodeKey;
+  bool _polling = false;
 
   Future<void> startLogin() async {
     loading.value = true;
@@ -26,7 +27,7 @@ class TvLoginController extends GetxController {
       final dynamic res = await LoginHttp.getWebQrcode();
       if (res['status'] == true) {
         qrUrl.value = res['data']['url'] as String;
-        qrcodeKey = res['data']['qrcode_key'] as String;
+        qrcodeKey = res['data']['qrcode_key']?.toString();
         pollTimer = Timer.periodic(const Duration(seconds: 1), (Timer timer) async {
           if (validSeconds.value <= 0) {
             timer.cancel();
@@ -47,18 +48,29 @@ class TvLoginController extends GetxController {
   }
 
   Future<void> queryStatus() async {
-    final dynamic res = await LoginHttp.queryWebQrcodeStatus(qrcodeKey);
-    if (res['status'] == true) {
-      final String url = res['data']['url']?.toString() ?? '';
-      if (url.isNotEmpty) {
-        await _saveCookiesFromUrl(url);
+    final String? key = qrcodeKey;
+    if (_polling || key == null || key.isEmpty) {
+      return;
+    }
+    _polling = true;
+    try {
+      final dynamic res = await LoginHttp.queryWebQrcodeStatus(key);
+      if (res['status'] == true) {
+        final String url = res['data']['url']?.toString() ?? '';
+        if (url.isNotEmpty) {
+          await _saveCookiesFromUrl(url);
+        }
+        final bool success =
+            await Get.find<TvSessionController>().syncUserFromServer(silent: true);
+        if (success) {
+          SmartDialog.showToast('登录成功');
+          pollTimer?.cancel();
+        }
       }
-      final bool success =
-          await Get.find<TvSessionController>().syncUserFromServer(silent: true);
-      if (success) {
-        SmartDialog.showToast('登录成功');
-        pollTimer?.cancel();
-      }
+    } catch (e) {
+      error.value = '轮询登录状态失败: $e';
+    } finally {
+      _polling = false;
     }
   }
 

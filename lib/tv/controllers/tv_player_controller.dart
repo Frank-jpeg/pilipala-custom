@@ -36,10 +36,17 @@ class TvPlayerController extends GetxController {
         return;
       }
       final PlayUrlModel playData = res['data'] as PlayUrlModel;
-      final String videoUrl = playData.durl?.first.url ??
-          playData.dash?.video?.first.baseUrl ??
+      final List<Durl>? durl = playData.durl;
+      final List<VideoItem>? dashVideos = playData.dash?.video;
+      final List<AudioItem>? dashAudios = playData.dash?.audio;
+      final String videoUrl = (durl != null && durl.isNotEmpty
+              ? durl.first.url
+              : dashVideos != null && dashVideos.isNotEmpty
+                  ? dashVideos.first.baseUrl
+                  : null) ??
           '';
-      final String audioUrl = playData.dash?.audio?.first.baseUrl ?? '';
+      final String audioUrl =
+          dashAudios != null && dashAudios.isNotEmpty ? dashAudios.first.baseUrl ?? '' : '';
       if (videoUrl.isEmpty) {
         error.value = '播放地址为空';
         return;

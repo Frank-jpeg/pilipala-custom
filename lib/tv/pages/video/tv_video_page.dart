@@ -7,13 +7,27 @@ import 'package:pilipala/tv/utils/tv_formatters.dart';
 import 'package:pilipala/tv/widgets/tv_async_state.dart';
 import 'package:pilipala/tv/widgets/tv_focusable_button.dart';
 
-class TvVideoPage extends StatelessWidget {
+class TvVideoPage extends StatefulWidget {
   const TvVideoPage({super.key});
 
   @override
+  State<TvVideoPage> createState() => _TvVideoPageState();
+}
+
+class _TvVideoPageState extends State<TvVideoPage> {
+  String? _controllerTag;
+
+  TvVideoController _getController() {
+    _controllerTag ??= '${Get.parameters['bvid']}_${Get.parameters['cid']}';
+    if (Get.isRegistered<TvVideoController>(tag: _controllerTag)) {
+      return Get.find<TvVideoController>(tag: _controllerTag);
+    }
+    return Get.put(TvVideoController(), tag: _controllerTag);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final TvVideoController controller =
-        Get.put(TvVideoController(), tag: '${Get.parameters['bvid']}_${Get.parameters['cid']}');
+    final TvVideoController controller = _getController();
     return Scaffold(
       body: Padding(
         padding: const EdgeInsets.fromLTRB(28, 26, 28, 26),
@@ -158,5 +172,14 @@ class TvVideoPage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    final String? tag = _controllerTag;
+    if (tag != null && Get.isRegistered<TvVideoController>(tag: tag)) {
+      Get.delete<TvVideoController>(tag: tag);
+    }
+    super.dispose();
   }
 }

@@ -39,8 +39,11 @@ class TvLibraryController extends GetxController {
         historyList.value = data.list ?? <HisListItem>[];
       }
       if (laterRes['status'] == true) {
-        watchLaterList.value =
-            List<HotVideoItemModel>.from(laterRes['data']['list'] as List);
+        final dynamic laterData = laterRes['data'];
+        final dynamic laterList = laterData is Map ? laterData['list'] : null;
+        watchLaterList.value = laterList is List
+            ? laterList.whereType<HotVideoItemModel>().toList(growable: false)
+            : <HotVideoItemModel>[];
       }
 
       if (userInfoRes['status'] == true && userInfoRes['data']?.mid != null) {
