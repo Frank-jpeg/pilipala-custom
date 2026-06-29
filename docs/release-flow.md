@@ -18,12 +18,12 @@ This fork now has two different Android outputs on GitHub. They are not intercha
 Preferred local command:
 
 ```powershell
-flutter build apk --release --target-platform android-arm64 --split-per-abi --no-pub
+flutter build apk --release --flavor mobile -t lib/main.dart --target-platform android-arm64 --split-per-abi --no-pub
 ```
 
 Expected output:
 
-- `build/app/outputs/flutter-apk/app-arm64-v8a-release.apk`
+- `build/app/outputs/flutter-apk/app-arm64-v8a-mobile-release.apk`
 - optional copied file: `releases/pilipala-custom-<version>-arm64-v8a.apk`
 
 If `android/app/vvex.jks` or `android/key.properties` is missing, this project can fall back to the debug keystore for a locally installable release build.
@@ -38,12 +38,13 @@ Current behavior:
 
 - triggers on push to `main` or manual dispatch
 - builds Android arm64 only
+- uses the `mobile` flavor
 - uses `--split-per-abi`
-- uploads only `app-arm64-v8a-release.apk`
+- uploads only `app-arm64-v8a-mobile-release.apk`
 
 Important guardrail:
 
-- if CI only produces `app-release.apk` and not `app-arm64-v8a-release.apk`, the workflow must fail
+- if CI only produces `app-release.apk` and not `app-arm64-v8a-mobile-release.apk`, the workflow must fail
 - do not rename a generic `app-release.apk` to look like an arm64 split package
 
 This guardrail was added after a false-positive success on `2026-06-28`: the workflow succeeded, but the uploaded artifact was actually the generic `app-release.apk` around 40 MB instead of the real arm64 split APK around 23 MB.
@@ -69,7 +70,7 @@ The silent startup update check shows a red dot on the avatar when a newer Relea
 
 First check whether CI uploaded:
 
-- `app-arm64-v8a-release.apk` -> expected arm64 split package
+- `app-arm64-v8a-mobile-release.apk` -> expected mobile arm64 split package
 - `app-release.apk` -> generic package, larger size, wrong for this workflow
 
 If artifact size is around 39-40 MB while local arm64 APK is around 23-24 MB, CI likely uploaded the wrong package type.

@@ -113,7 +113,7 @@ jobs:
           sed -i "s/version: .*+/version: ${{ needs.update_version.outputs.new_version }}+/g" pubspec.yaml
 
       - name: flutter build apk
-        run: flutter build apk --release --split-per-abi
+        run: flutter build apk --release --flavor mobile -t lib/main.dart --split-per-abi
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}

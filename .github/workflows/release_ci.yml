@@ -48,14 +48,14 @@ jobs:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
 
       - name: flutter build apk
-        run: flutter build apk --release --split-per-abi
+        run: flutter build apk --release --flavor mobile -t lib/main.dart --split-per-abi
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD}}
 
       - name: flutter build apk
-        run: flutter build apk --release
+        run: flutter build apk --release --flavor mobile -t lib/main.dart
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}

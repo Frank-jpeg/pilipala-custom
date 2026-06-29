@@ -41,6 +41,7 @@ android {
     namespace "com.guozhigq.pilipala.custom"
     compileSdkVersion 36
     ndkVersion flutter.ndkVersion
+    flavorDimensions "device"
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
@@ -65,6 +66,19 @@ android {
         versionName flutterVersionName
         minSdkVersion 21
         multiDexEnabled true
+    }
+
+    productFlavors {
+        mobile {
+            dimension "device"
+            applicationId "com.guozhigq.pilipala.custom"
+            resValue "string", "app_name", "PiliPala 自改版"
+        }
+        tv {
+            dimension "device"
+            applicationId "com.guozhigq.pilipala.custom.tv"
+            resValue "string", "app_name", "PiliPala TV"
+        }
     }
 
     signingConfigs {

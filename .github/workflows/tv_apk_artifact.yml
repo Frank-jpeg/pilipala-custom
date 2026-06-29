@@ -1,18 +1,18 @@
-name: Android APK Artifact
+name: Android TV APK Artifact
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - main
+      - tv
     paths-ignore:
       - "**.md"
       - "**.txt"
       - ".idea/**"
 
 jobs:
-  android-apk:
-    name: Build Android arm64 APK
+  android-tv-apk:
+    name: Build Android TV arm64 APK
     runs-on: ubuntu-latest
 
     steps:
@@ -59,8 +59,8 @@ jobs:
             echo "kotlin.daemon.jvmargs=-Xmx1024M"
           } >> android/gradle.properties
 
-      - name: Build mobile arm64 release APK
-        run: flutter build apk --release --flavor mobile -t lib/main.dart --target-platform android-arm64 --split-per-abi
+      - name: Build TV arm64 release APK
+        run: flutter build apk --release --flavor tv -t lib/main_tv.dart --target-platform android-arm64 --split-per-abi
         env:
           JAVA_TOOL_OPTIONS: -Xmx4096M
           KEYSTORE: ${{ github.workspace }}/android/app/debug-ci.keystore
@@ -75,22 +75,22 @@ jobs:
           version="$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d '+' -f 1)"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      - name: Rename APK
+      - name: Rename TV APK
         shell: bash
         run: |
           mkdir -p dist
-          apk="build/app/outputs/flutter-apk/app-arm64-v8a-mobile-release.apk"
+          apk="build/app/outputs/flutter-apk/app-arm64-v8a-tv-release.apk"
           if [[ ! -f "$apk" ]]; then
-            echo "Expected arm64 split APK not found: $apk" >&2
+            echo "Expected TV arm64 split APK not found: $apk" >&2
             find build/app/outputs -maxdepth 3 -type f | sort >&2
             exit 1
           fi
-          cp "$apk" "dist/pilipala-custom-${{ steps.version.outputs.version }}-${GITHUB_SHA::7}-arm64-v8a.apk"
+          cp "$apk" "dist/pilipala-custom-tv-${{ steps.version.outputs.version }}-${GITHUB_SHA::7}-arm64-v8a.apk"
 
-      - name: Upload APK artifact
+      - name: Upload TV APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pilipala-custom-android-arm64
+          name: pilipala-custom-android-tv-arm64
           path: dist/*.apk
           if-no-files-found: error
           retention-days: 14
