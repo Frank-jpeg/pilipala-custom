@@ -20,10 +20,12 @@ class TvLeftNav extends StatefulWidget {
     super.key,
     required this.items,
     required this.selectedIndex,
+    this.focusNodes,
   });
 
   final List<TvNavItem> items;
   final int selectedIndex;
+  final List<FocusNode>? focusNodes;
 
   @override
   State<TvLeftNav> createState() => _TvLeftNavState();
@@ -64,7 +66,12 @@ class _TvLeftNavState extends State<TvLeftNav> {
                 final TvNavItem item = widget.items[index];
                 final bool selected = widget.selectedIndex == index;
                 final bool focused = _focusedIndex == index;
+                final FocusNode? focusNode = widget.focusNodes != null &&
+                        index < widget.focusNodes!.length
+                    ? widget.focusNodes![index]
+                    : null;
                 return Focus(
+                  focusNode: focusNode,
                   onKeyEvent: (FocusNode node, KeyEvent event) {
                     if (event is KeyDownEvent &&
                         (event.logicalKey == LogicalKeyboardKey.select ||
@@ -76,14 +83,17 @@ class _TvLeftNavState extends State<TvLeftNav> {
                   },
                   onFocusChange: (bool value) {
                     setState(() {
-                      _focusedIndex = value ? index : (_focusedIndex == index ? -1 : _focusedIndex);
+                      _focusedIndex = value
+                          ? index
+                          : (_focusedIndex == index ? -1 : _focusedIndex);
                     });
                   },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 120),
                     decoration: BoxDecoration(
                       color: selected || focused
-                          ? colorScheme.primary.withOpacity(selected ? 0.95 : 0.78)
+                          ? colorScheme.primary
+                              .withOpacity(selected ? 0.95 : 0.78)
                           : Colors.white.withOpacity(0.04),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
@@ -95,7 +105,8 @@ class _TvLeftNavState extends State<TvLeftNav> {
                       borderRadius: BorderRadius.circular(8),
                       onTap: item.onTap,
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 14),
                         child: Row(
                           children: <Widget>[
                             Stack(
