@@ -8,6 +8,7 @@ import 'package:pilipala/tv/controllers/tv_session_controller.dart';
 import 'package:pilipala/tv/models/tv_video_card_data.dart';
 import 'package:pilipala/tv/tv_routes.dart';
 import 'package:pilipala/tv/utils/tv_video_mapper.dart';
+import 'package:pilipala/utils/storage.dart';
 
 class TvHomeController extends GetxController {
   final RxList<RecVideoItemAppModel> items = <RecVideoItemAppModel>[].obs;
@@ -17,6 +18,15 @@ class TvHomeController extends GetxController {
   final RxBool autoFullscreenArmed = false.obs;
 
   Timer? _fullscreenTimer;
+
+  bool get autoFullscreenEnabled => GStrorage.setting
+      .get(SettingBoxKey.tvAutoFullscreenEnable, defaultValue: true) as bool;
+
+  int get autoFullscreenDelaySeconds {
+    final int value = GStrorage.setting
+        .get(SettingBoxKey.tvAutoFullscreenDelay, defaultValue: 15) as int;
+    return value.clamp(5, 60);
+  }
 
   List<TvVideoCardData> get videos =>
       items.map(TvVideoMapper.fromRcmd).toList(growable: false);
@@ -107,12 +117,18 @@ class TvHomeController extends GetxController {
 
   void scheduleAutoFullscreen() {
     cancelAutoFullscreen();
+    if (!autoFullscreenEnabled ||
+        items.isEmpty ||
+        Get.currentRoute != TvRoutes.shell) {
+      return;
+    }
     Future<void>.delayed(Duration.zero, () {
       if (isClosed || _fullscreenTimer != null) {
         return;
       }
       autoFullscreenArmed.value = true;
-      _fullscreenTimer = Timer(const Duration(seconds: 15), () {
+      _fullscreenTimer =
+          Timer(Duration(seconds: autoFullscreenDelaySeconds), () {
         autoFullscreenArmed.value = false;
         playSelected(immersive: true);
       });
@@ -123,6 +139,18 @@ class TvHomeController extends GetxController {
     _fullscreenTimer?.cancel();
     _fullscreenTimer = null;
     autoFullscreenArmed.value = false;
+  }
+
+  void applyAutoFullscreenSettings() {
+    if (Get.currentRoute != TvRoutes.shell) {
+      cancelAutoFullscreen();
+      return;
+    }
+    if (autoFullscreenEnabled && items.isNotEmpty) {
+      scheduleAutoFullscreen();
+    } else {
+      cancelAutoFullscreen();
+    }
   }
 
   @override

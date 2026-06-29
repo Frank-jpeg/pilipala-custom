@@ -116,6 +116,8 @@ class SettingBoxKey {
 
       /// 其他
       autoUpdate = 'autoUpdate',
+      tvAutoFullscreenEnable = 'tvAutoFullscreenEnable',
+      tvAutoFullscreenDelay = 'tvAutoFullscreenDelay',
       replySortType = 'replySortType',
       defaultDynamicType = 'defaultDynamicType',
       enableHotKey = 'enableHotKey',

@@ -131,6 +131,7 @@ class _TvShellPageState extends State<TvShellPage> {
         _controller.openSelectedDetail();
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowLeft:
+        _controller.cancelAutoFullscreen();
         _navFocusNodes[_selectedIndex.clamp(0, _navFocusNodes.length - 1)]
             .requestFocus();
         return KeyEventResult.handled;
