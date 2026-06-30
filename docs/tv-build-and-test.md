@@ -15,16 +15,18 @@ It is currently a usable MVP for manual TV testing, not a published in-app updat
 - CI artifact name: `pilipala-custom-android-tv-arm64`
 - CI APK filename pattern: `pilipala-custom-tv-<version>-<sha>-arm64-v8a.apk`
 
-The TV home page is an immersive recommendation feed:
+The TV app now uses a left navigation shell, with recommendation as one real section instead of replacing the whole app:
 
-- top category rail
-- left vertical recommendation queue
-- large background artwork for the selected video
+- left navigation items: `推荐` / `搜索` / `媒体库` / `登录` or `我的` / `设置`
+- `推荐` section uses the immersive recommendation stage
+- selected recommendation shows large background artwork and detail panel
 - DPAD up/down switches recommendations
 - OK enters full-screen playback
-- left opens details
-- after 15 seconds idle on a recommendation, it enters full-screen playback
+- right opens details
+- left returns focus to the left navigation
+- idle on a recommendation can auto-enter full-screen playback
 - from recommendation playback, DPAD up/down switches previous/next recommendation
+- `设置` can enable/disable idle auto-fullscreen and change the delay from 5 to 60 seconds
 
 ## API sources
 
@@ -117,13 +119,19 @@ Use the latest `tv` branch artifact from GitHub Actions or the local arm64 relea
 
 1. Install the TV APK on a real Android TV or TV box.
 2. Confirm the app appears in the TV launcher.
-3. Open the app and confirm the immersive recommendation page loads.
-4. Use DPAD up/down to switch recommendations.
-5. Wait 15 seconds on a recommendation and confirm it enters full-screen playback.
-6. Press OK on a recommendation and confirm full-screen playback opens.
-7. In recommendation playback, use DPAD up/down to switch videos.
-8. Press Back and confirm it returns to the recommendation page, not the TV launcher.
-9. Confirm real playback has video and audio.
-10. Test Web QR login if account-only flows are needed.
+3. Open the app and confirm the left navigation shell loads.
+4. Enter `推荐` and confirm the immersive recommendation stage loads.
+5. Use DPAD up/down to switch recommendations.
+6. Wait for the configured idle delay and confirm it enters full-screen playback.
+7. Press OK on a recommendation and confirm full-screen playback opens.
+8. In recommendation playback, use DPAD up/down to switch videos.
+9. Press Back and confirm it returns to the correct previous page:
+   - recommendation playback -> recommendation stage
+   - detail playback -> detail page
+10. Enter `搜索` and confirm both `返回` and `搜索` buttons are focusable with DPAD.
+11. Enter `媒体库` and confirm the page is usable in both logged-in and not-logged-in states.
+12. Enter `设置` and confirm idle auto-fullscreen can be toggled and its delay can be adjusted.
+13. Confirm real playback has video and audio.
+14. Test Web QR login if account-only flows are needed.
 
 If real-device playback is black, treat it as a player/play-url compatibility bug and inspect `TvPlayerController` plus the shared `PlPlayerController`/`media_kit` integration first.

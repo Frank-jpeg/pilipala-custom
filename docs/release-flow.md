@@ -68,8 +68,11 @@ Current behavior:
 The uploaded APK is renamed as:
 
 - `pilipala-custom-tv-<version>-<short-sha>-arm64-v8a.apk`
+- `pilipala-custom-tv-arm64-v8a.apk`
 
-TV artifacts are for manual sideload testing. They are not part of the mobile in-app update flow.
+The workflow also updates the prerelease tag `tv-latest` so the project homepage can expose a stable direct-download link for the newest TV build.
+
+TV artifacts are for manual sideload testing. They are not part of the mobile in-app update flow, and the `tv-latest` prerelease does not participate in the mobile app update checker.
 
 ## App update flow
 
