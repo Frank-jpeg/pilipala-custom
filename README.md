@@ -121,9 +121,14 @@ QQ 频道: https://pd.qq.com/s/365esodk3
 
 ## 下载
 
-可以通过右侧 Releases 进行下载或拉取代码到本地进行编译
+| 版本 | 适用设备 | 下载入口 |
+| --- | --- | --- |
+| Android 手机版 | 手机、平板 | [打开最新版 Release](https://github.com/Frank-jpeg/pilipala-custom/releases/latest) |
+| Android TV 版 | Android TV、电视盒子、投影仪 | [直接下载 TV 最新 arm64 APK](https://github.com/Frank-jpeg/pilipala-custom/releases/download/tv-latest/pilipala-custom-tv-arm64-v8a.apk) |
+| TV 版构建记录 | 查看每次 tv 分支自动打包 | [Android TV APK Artifact](https://github.com/Frank-jpeg/pilipala-custom/actions/workflows/tv_apk_artifact.yml) |
+| 历史版本 | 回退或对比旧包 | [全部 Releases](https://github.com/Frank-jpeg/pilipala-custom/releases) |
 
-当前这个 fork 的 App 内更新只认 GitHub Release，不认 GitHub Actions artifact。Actions 里的 APK 产物适合手动下载测试，不会自动出现在 App 的更新检查里。
+说明：手机端 App 内更新只认正式 GitHub Release；TV 版走 `tv-latest` Release 的固定直链，便于在项目主页直接点击下载安装。Actions artifact 只作为构建记录和临时测试产物。
 
 ### 从 F-Droid 安装
 

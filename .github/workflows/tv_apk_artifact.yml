@@ -10,6 +10,9 @@ on:
       - "**.txt"
       - ".idea/**"
 
+permissions:
+  contents: write
+
 jobs:
   android-tv-apk:
     name: Build Android TV arm64 APK
@@ -85,6 +88,7 @@ jobs:
             find build/app/outputs -maxdepth 3 -type f | sort >&2
             exit 1
           fi
+          cp "$apk" "dist/pilipala-custom-tv-arm64-v8a.apk"
           cp "$apk" "dist/pilipala-custom-tv-${{ steps.version.outputs.version }}-${GITHUB_SHA::7}-arm64-v8a.apk"
 
       - name: Upload TV APK artifact
@@ -94,3 +98,20 @@ jobs:
           path: dist/*.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish TV latest release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: tv-latest
+          name: PiliPala TV Latest
+          body: |
+            自动构建的 TV 版 APK，来自 tv 分支最新提交。
+
+            - 固定直链文件：pilipala-custom-tv-arm64-v8a.apk
+            - 带版本文件用于确认具体构建来源
+            - 该 Release 是 TV 测试版下载入口，不参与手机端 App 内更新
+          prerelease: true
+          make_latest: false
+          overwrite_files: true
+          fail_on_unmatched_files: true
+          files: dist/*.apk
