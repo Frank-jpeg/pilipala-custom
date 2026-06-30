@@ -1,0 +1,117 @@
+name: Android TV APK Artifact
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - tv
+    paths-ignore:
+      - "**.md"
+      - "**.txt"
+      - ".idea/**"
+
+permissions:
+  contents: write
+
+jobs:
+  android-tv-apk:
+    name: Build Android TV arm64 APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: "17"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.19.6
+          channel: stable
+          cache: true
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Configure CI signing
+        shell: bash
+        run: |
+          keytool -genkeypair \
+            -alias androiddebugkey \
+            -keypass android \
+            -keystore android/app/debug-ci.keystore \
+            -storepass android \
+            -dname "CN=Android Debug,O=Android,C=US" \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000
+
+      - name: Configure CI Gradle memory
+        shell: bash
+        run: |
+          {
+            echo ""
+            echo "# CI-only overrides for GitHub Actions runners"
+            echo "org.gradle.jvmargs=-Xmx4096M -XX:MaxMetaspaceSize=1024M -XX:+HeapDumpOnOutOfMemoryError"
+            echo "org.gradle.workers.max=1"
+            echo "kotlin.daemon.jvmargs=-Xmx1024M"
+          } >> android/gradle.properties
+
+      - name: Build TV arm64 release APK
+        run: flutter build apk --release --flavor tv -t lib/main_tv.dart --target-platform android-arm64 --split-per-abi
+        env:
+          JAVA_TOOL_OPTIONS: -Xmx4096M
+          KEYSTORE: ${{ github.workspace }}/android/app/debug-ci.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'android' }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'androiddebugkey' }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'android' }}
+
+      - name: Read version
+        id: version
+        shell: bash
+        run: |
+          version="$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d '+' -f 1)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Rename TV APK
+        shell: bash
+        run: |
+          mkdir -p dist
+          apk="build/app/outputs/flutter-apk/app-arm64-v8a-tv-release.apk"
+          if [[ ! -f "$apk" ]]; then
+            echo "Expected TV arm64 split APK not found: $apk" >&2
+            find build/app/outputs -maxdepth 3 -type f | sort >&2
+            exit 1
+          fi
+          cp "$apk" "dist/pilipala-custom-tv-arm64-v8a.apk"
+          cp "$apk" "dist/pilipala-custom-tv-${{ steps.version.outputs.version }}-${GITHUB_SHA::7}-arm64-v8a.apk"
+
+      - name: Upload TV APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pilipala-custom-android-tv-arm64
+          path: dist/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish TV latest release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: tv-latest
+          name: PiliPala TV Latest
+          body: |
+            自动构建的 TV 版 APK，来自 tv 分支最新提交。
+
+            - 固定直链文件：pilipala-custom-tv-arm64-v8a.apk
+            - 带版本文件用于确认具体构建来源
+            - 该 Release 是 TV 测试版下载入口，不参与手机端 App 内更新
+          prerelease: true
+          make_latest: false
+          overwrite_files: true
+          fail_on_unmatched_files: true
+          files: dist/*.apk
