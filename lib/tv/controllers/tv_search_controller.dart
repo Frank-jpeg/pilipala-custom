@@ -15,12 +15,15 @@ class TvSearchController extends GetxController {
 
   Future<void> loadHot() async {
     loadingHot.value = true;
+    error.value = null;
     try {
       final dynamic res = await SearchHttp.hotSearchList();
       if (res['status'] == true) {
         final HotSearchModel data = res['data'] as HotSearchModel;
         hotItems.value = data.list ?? <HotSearchItem>[];
       }
+    } catch (e) {
+      error.value = '加载热门搜索失败: $e';
     } finally {
       loadingHot.value = false;
     }

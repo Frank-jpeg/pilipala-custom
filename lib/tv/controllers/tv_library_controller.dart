@@ -15,6 +15,7 @@ class TvLibraryController extends GetxController {
   final RxList<FavDetailItemData> favVideos = <FavDetailItemData>[].obs;
   final RxList<HotVideoItemModel> watchLaterList = <HotVideoItemModel>[].obs;
   final RxInt selectedFavFolderId = 0.obs;
+  Worker? _loginWorker;
 
   bool get isLogin => Get.find<TvSessionController>().isLogin.value;
 
@@ -94,7 +95,7 @@ class TvLibraryController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    ever<bool>(Get.find<TvSessionController>().isLogin, (_) {
+    _loginWorker = ever<bool>(Get.find<TvSessionController>().isLogin, (_) {
       if (isLogin) {
         loadAll();
       } else {
@@ -107,5 +108,11 @@ class TvLibraryController extends GetxController {
     if (isLogin) {
       loadAll();
     }
+  }
+
+  @override
+  void onClose() {
+    _loginWorker?.dispose();
+    super.onClose();
   }
 }
