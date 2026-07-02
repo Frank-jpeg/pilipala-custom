@@ -69,9 +69,99 @@ class TvSettingsPage extends StatelessWidget {
                   ),
                 ],
               ),
+              const SizedBox(height: 30),
+              const _SectionTitle(title: '防沉迷'),
+              const SizedBox(height: 18),
+              _SettingRow(
+                title: 'TV 防沉迷',
+                subtitle: controller.antiAddiction.enabled.value
+                    ? '已开启，观看会按单次和每日规则计时'
+                    : '默认关闭，不影响当前观看体验',
+                value: controller.antiAddictionStatus,
+                actions: <Widget>[
+                  TvFocusableButton(
+                    label: controller.antiAddiction.enabled.value ? '关闭' : '开启',
+                    icon: controller.antiAddiction.enabled.value
+                        ? Icons.toggle_on
+                        : Icons.toggle_off,
+                    onPressed: () => controller.toggleAntiAddiction(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              _SettingRow(
+                title: '单次观看时长',
+                subtitle: '到点后进入强制休息锁页',
+                value:
+                    '${controller.antiAddiction.sessionLimitMinutes.value} 分钟',
+                actions: <Widget>[
+                  TvFocusableButton(
+                    label: '切换',
+                    icon: Icons.timer_outlined,
+                    onPressed: () => controller.cycleSessionLimit(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              _SettingRow(
+                title: '强制休息时长',
+                subtitle: '休息倒计时结束后自动解锁',
+                value: '${controller.antiAddiction.restMinutes.value} 分钟',
+                actions: <Widget>[
+                  TvFocusableButton(
+                    label: '切换',
+                    icon: Icons.self_improvement_outlined,
+                    onPressed: () => controller.cycleRestMinutes(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              _SettingRow(
+                title: '每日总时长',
+                subtitle: '关闭时只按单次观看和强制休息计时',
+                value: controller.dailyLimitLabel,
+                actions: <Widget>[
+                  TvFocusableButton(
+                    label: '切换',
+                    icon: Icons.today_outlined,
+                    onPressed: () => controller.cycleDailyLimit(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              _SettingRow(
+                title: '家长 PIN',
+                subtitle: '用于关闭/修改防沉迷，以及锁页临时解锁',
+                value: controller.pinStatus,
+                actions: <Widget>[
+                  TvFocusableButton(
+                    label: controller.antiAddiction.hasPin ? '修改' : '设置',
+                    icon: Icons.pin_outlined,
+                    onPressed: () => controller.setOrChangePin(context),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title,
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 26,
+        fontWeight: FontWeight.w900,
       ),
     );
   }

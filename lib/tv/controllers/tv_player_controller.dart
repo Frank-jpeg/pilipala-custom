@@ -6,6 +6,8 @@ import 'package:pilipala/models/video/play/quality.dart';
 import 'package:pilipala/models/video/play/url.dart';
 import 'package:pilipala/plugin/pl_player/controller.dart';
 import 'package:pilipala/plugin/pl_player/models/data_source.dart';
+import 'package:pilipala/plugin/pl_player/models/play_status.dart';
+import 'package:pilipala/tv/controllers/tv_anti_addiction_controller.dart';
 import 'package:pilipala/tv/controllers/tv_home_controller.dart';
 import 'package:pilipala/tv/models/tv_video_card_data.dart';
 
@@ -30,6 +32,7 @@ class TvPlayerController extends GetxController {
   bool get isRecommendSource => _isRecommendSource;
 
   Worker? _positionWorker;
+  Worker? _statusWorker;
   bool _switchingVideo = false;
 
   void _readRouteParams() {
@@ -106,6 +109,7 @@ class TvPlayerController extends GetxController {
       );
       await player.getCurrentVolume();
       volume.value = player.volume.value;
+      _syncAntiAddictionWithPlayer();
     } catch (e) {
       error.value = '播放器初始化失败: $e';
       SmartDialog.showToast(error.value!);
@@ -194,17 +198,49 @@ class TvPlayerController extends GetxController {
     });
   }
 
+  void _watchAntiAddiction() {
+    _statusWorker = ever<PlayerStatus>(
+      player.playerStatus.status,
+      (_) => _syncAntiAddictionWithPlayer(),
+    );
+  }
+
+  void _syncAntiAddictionWithPlayer() {
+    if (!Get.isRegistered<TvAntiAddictionController>()) {
+      return;
+    }
+    final TvAntiAddictionController anti =
+        Get.find<TvAntiAddictionController>();
+    if (loading.value || error.value != null) {
+      anti.stopCounting();
+      return;
+    }
+    if (player.playerStatus.playing) {
+      anti.startCounting(
+        pausePlayback: () => player.pause(),
+        resumePlayback: () => player.play(),
+      );
+    } else {
+      anti.stopCounting();
+    }
+  }
+
   @override
   void onInit() {
     super.onInit();
     _readRouteParams();
     _watchAutoNext();
+    _watchAntiAddiction();
     initPlayer();
   }
 
   @override
   void onClose() {
     _positionWorker?.dispose();
+    _statusWorker?.dispose();
+    if (Get.isRegistered<TvAntiAddictionController>()) {
+      Get.find<TvAntiAddictionController>().stopCounting();
+    }
     player.dispose();
     super.onClose();
   }

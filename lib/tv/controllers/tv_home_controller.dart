@@ -9,6 +9,7 @@ import 'package:pilipala/http/video.dart';
 import 'package:pilipala/models/home/rcmd/result.dart';
 import 'package:pilipala/models/video/play/quality.dart';
 import 'package:pilipala/models/video/play/url.dart';
+import 'package:pilipala/tv/controllers/tv_anti_addiction_controller.dart';
 import 'package:pilipala/tv/controllers/tv_session_controller.dart';
 import 'package:pilipala/tv/models/tv_video_card_data.dart';
 import 'package:pilipala/tv/tv_routes.dart';
@@ -35,6 +36,8 @@ class TvHomeController extends GetxController {
   bool _recommendStageActive = true;
 
   VideoController? get previewVideoController => _previewVideoController;
+  TvAntiAddictionController get _antiAddiction =>
+      Get.find<TvAntiAddictionController>();
 
   bool get _canAutoActOnRecommend =>
       !isClosed && _recommendStageActive && items.isNotEmpty;
@@ -150,6 +153,7 @@ class TvHomeController extends GetxController {
   void markRecommendStageActive(bool active) {
     _recommendStageActive = active;
     if (!active) {
+      _antiAddiction.stopCounting();
       cancelAutoFullscreen();
       pausePreview();
       return;
@@ -217,6 +221,10 @@ class TvHomeController extends GetxController {
       }
       previewBvid.value = data.bvid;
       previewReady.value = _previewVideoController != null;
+      _antiAddiction.startCounting(
+        pausePlayback: pausePreview,
+        resumePlayback: () => schedulePreviewAutoplay(immediate: true),
+      );
     } catch (e) {
       if (generation == _previewGeneration) {
         previewReady.value = false;
@@ -256,6 +264,7 @@ class TvHomeController extends GetxController {
     previewReady.value = false;
     previewPreparing.value = false;
     _previewPlayer?.pause();
+    _antiAddiction.stopCounting();
   }
 
   Future<void> _openPreviewPlayer({
@@ -355,6 +364,7 @@ class TvHomeController extends GetxController {
   void onClose() {
     cancelAutoFullscreen();
     _previewTimer?.cancel();
+    _antiAddiction.stopCounting();
     _previewPlayer?.dispose();
     super.onClose();
   }

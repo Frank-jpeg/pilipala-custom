@@ -4,6 +4,7 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:pilipala/common/widgets/custom_toast.dart';
 import 'package:pilipala/tv/controllers/tv_session_controller.dart';
+import 'package:pilipala/tv/pages/anti_addiction/tv_anti_addiction_lock_page.dart';
 import 'package:pilipala/tv/tv_routes.dart';
 
 class TvApp extends StatelessWidget {
@@ -37,7 +38,12 @@ class TvApp extends StatelessWidget {
       builder: (BuildContext context, Widget? child) {
         return FlutterSmartDialog(
           toastBuilder: (String msg) => CustomToast(msg: msg),
-          child: child ?? const SizedBox.shrink(),
+          child: Stack(
+            children: <Widget>[
+              Positioned.fill(child: child ?? const SizedBox.shrink()),
+              const TvAntiAddictionLockOverlay(),
+            ],
+          ),
         );
       },
       onReady: () {

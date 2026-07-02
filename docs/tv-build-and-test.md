@@ -27,6 +27,8 @@ The TV app now uses a left navigation shell, with recommendation as one real sec
 - idle on a recommendation can auto-enter full-screen playback
 - from recommendation playback, DPAD up/down switches previous/next recommendation
 - `设置` can enable/disable idle auto-fullscreen and change the delay from 5 to 60 seconds
+- `设置` can enable TV anti-addiction controls with a local 4-digit parent PIN
+- TV anti-addiction tracks recommendation preview and full-screen playback, then locks playback for forced rest or daily limit countdowns
 
 ## API sources
 
@@ -136,7 +138,11 @@ Use the latest `tv` branch artifact from GitHub Actions or the local arm64 relea
 12. Enter `搜索` and confirm both `返回` and `搜索` buttons are focusable with DPAD.
 13. Enter `媒体库` and confirm the page is usable in both logged-in and not-logged-in states.
 14. Enter `设置` and confirm idle auto-fullscreen can be toggled and its delay can be adjusted.
-15. Confirm real playback has video and audio.
-16. Test account-only flows after login if needed.
+15. In `设置`, set a parent PIN, enable `TV 防沉迷`, and confirm the default values are 30 minutes watch / 20 minutes rest / daily limit off.
+16. Temporarily reduce the single-session limit during manual testing if needed, then confirm recommendation preview and full-screen playback both trigger the lock page.
+17. Confirm Back cannot bypass the anti-addiction lock page.
+18. Confirm parent PIN unlock resumes playback and daily-limit PIN unlock adds only the temporary extra watch time.
+19. Confirm real playback has video and audio.
+20. Test account-only flows after login if needed.
 
 If real-device playback is black, treat it as a player/play-url compatibility bug and inspect `TvPlayerController` plus the shared `PlPlayerController`/`media_kit` integration first.

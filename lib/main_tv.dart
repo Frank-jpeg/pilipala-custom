@@ -8,6 +8,7 @@ import 'package:get/get.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:pilipala/http/init.dart';
 import 'package:pilipala/services/service_locator.dart';
+import 'package:pilipala/tv/controllers/tv_anti_addiction_controller.dart';
 import 'package:pilipala/tv/controllers/tv_session_controller.dart';
 import 'package:pilipala/tv/tv_app.dart';
 import 'package:pilipala/utils/app_scheme.dart';
@@ -48,6 +49,10 @@ void main() async {
   await Data.init();
   RecommendFilter();
   Get.put<TvSessionController>(TvSessionController(), permanent: true);
+  Get.put<TvAntiAddictionController>(
+    TvAntiAddictionController(),
+    permanent: true,
+  );
 
   final Catcher2Options releaseConfig = Catcher2Options(
     SilentReportMode(),
