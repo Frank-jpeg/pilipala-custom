@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 import 'package:pilipala/tv/controllers/tv_home_controller.dart';
 import 'package:pilipala/tv/controllers/tv_session_controller.dart';
 import 'package:pilipala/tv/models/tv_video_card_data.dart';
@@ -102,6 +103,7 @@ class _TvShellPageState extends State<TvShellPage> {
                   empty: _controller.items.isEmpty,
                   emptyText: '暂无推荐内容',
                   child: _RecommendStage(
+                    controller: _controller,
                     videos: _controller.videos,
                     selectedIndex: _controller.selectedIndex.value,
                     autoFullscreenArmed: _controller.autoFullscreenArmed.value,
@@ -132,6 +134,7 @@ class _TvShellPageState extends State<TvShellPage> {
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowLeft:
         _controller.cancelAutoFullscreen();
+        _controller.pausePreview();
         _navFocusNodes[_selectedIndex.clamp(0, _navFocusNodes.length - 1)]
             .requestFocus();
         return KeyEventResult.handled;
@@ -156,12 +159,14 @@ class _TvShellPageState extends State<TvShellPage> {
 
 class _RecommendStage extends StatelessWidget {
   const _RecommendStage({
+    required this.controller,
     required this.videos,
     required this.selectedIndex,
     required this.autoFullscreenArmed,
     required this.onSelect,
   });
 
+  final TvHomeController controller;
   final List<TvVideoCardData> videos;
   final int selectedIndex;
   final bool autoFullscreenArmed;
@@ -175,6 +180,10 @@ class _RecommendStage extends StatelessWidget {
       fit: StackFit.expand,
       children: <Widget>[
         _Backdrop(video: selected),
+        _PreviewBackdrop(
+          controller: controller,
+          video: selected,
+        ),
         Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -202,7 +211,7 @@ class _RecommendStage extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               const Text(
-                'OK 播放  右键详情  上下切换  左键返回菜单',
+                '首页自动播放  OK 全屏  右键详情  上下切换  左键返回菜单',
                 style: TextStyle(color: Colors.white70, fontSize: 15),
               ),
               const SizedBox(height: 24),
@@ -210,7 +219,7 @@ class _RecommendStage extends StatelessWidget {
                 child: LayoutBuilder(
                   builder: (BuildContext context, BoxConstraints constraints) {
                     final double listWidth =
-                        (constraints.maxWidth * 0.58).clamp(360.0, 548.0);
+                        (constraints.maxWidth * 0.45).clamp(340.0, 470.0);
                     final double gap = constraints.maxWidth < 760 ? 24 : 38;
                     return Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -232,6 +241,7 @@ class _RecommendStage extends StatelessWidget {
                         SizedBox(width: gap),
                         Expanded(
                           child: _HeroInfo(
+                            controller: controller,
                             video: selected,
                             autoFullscreenArmed: autoFullscreenArmed,
                           ),
@@ -245,6 +255,44 @@ class _RecommendStage extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _PreviewBackdrop extends StatelessWidget {
+  const _PreviewBackdrop({
+    required this.controller,
+    required this.video,
+  });
+
+  final TvHomeController controller;
+  final TvVideoCardData video;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(
+      () {
+        final VideoController? videoController =
+            controller.previewVideoController;
+        final bool canShow = controller.previewReady.value &&
+            controller.previewBvid.value == video.bvid &&
+            videoController != null;
+        return AnimatedOpacity(
+          duration: const Duration(milliseconds: 260),
+          opacity: canShow ? 1 : 0,
+          child: canShow
+              ? Video(
+                  key: ValueKey<String>('preview-${video.bvid}'),
+                  controller: videoController,
+                  controls: NoVideoControls,
+                  fit: BoxFit.cover,
+                  alignment: Alignment.center,
+                  pauseUponEnteringBackgroundMode: true,
+                  resumeUponEnteringForegroundMode: true,
+                )
+              : const SizedBox.expand(),
+        );
+      },
     );
   }
 }
@@ -363,10 +411,12 @@ class _RecommendRow extends StatelessWidget {
 
 class _HeroInfo extends StatelessWidget {
   const _HeroInfo({
+    required this.controller,
     required this.video,
     required this.autoFullscreenArmed,
   });
 
+  final TvHomeController controller;
   final TvVideoCardData video;
   final bool autoFullscreenArmed;
 
@@ -381,6 +431,32 @@ class _HeroInfo extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               const Spacer(),
+              Obx(
+                () => AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  child: controller.previewPreparing.value
+                      ? const _PreviewStatus(
+                          key: ValueKey<String>('preview-loading'),
+                          icon: Icons.play_circle_outline,
+                          label: '正在加载首页预览',
+                          highlighted: true,
+                        )
+                      : controller.previewReady.value &&
+                              controller.previewBvid.value == video.bvid
+                          ? const _PreviewStatus(
+                              key: ValueKey<String>('preview-playing'),
+                              icon: Icons.play_arrow_rounded,
+                              label: '正在自动播放',
+                              highlighted: true,
+                            )
+                          : const _PreviewStatus(
+                              key: ValueKey<String>('preview-cover'),
+                              icon: Icons.image_outlined,
+                              label: '封面预览',
+                            ),
+                ),
+              ),
+              const SizedBox(height: 16),
               Text(
                 video.title,
                 maxLines: compact ? 3 : 2,
@@ -412,7 +488,7 @@ class _HeroInfo extends StatelessWidget {
                 children: <Widget>[
                   _HintChip(
                     icon: Icons.play_arrow_rounded,
-                    label: autoFullscreenArmed ? '即将全屏播放' : 'OK 播放',
+                    label: autoFullscreenArmed ? '即将全屏' : 'OK 全屏',
                     highlighted: autoFullscreenArmed,
                     compact: compact,
                   ),
@@ -433,6 +509,46 @@ class _HeroInfo extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _PreviewStatus extends StatelessWidget {
+  const _PreviewStatus({
+    required this.icon,
+    required this.label,
+    this.highlighted = false,
+    super.key,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool highlighted;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+      decoration: BoxDecoration(
+        color: highlighted ? const Color(0xCCFF4BA0) : const Color(0x99111B2B),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withOpacity(0.16)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(icon, color: Colors.white, size: 20),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

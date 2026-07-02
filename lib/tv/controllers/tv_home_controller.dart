@@ -2,8 +2,13 @@ import 'dart:async';
 
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
+import 'package:pilipala/http/constants.dart';
 import 'package:pilipala/http/video.dart';
 import 'package:pilipala/models/home/rcmd/result.dart';
+import 'package:pilipala/models/video/play/quality.dart';
+import 'package:pilipala/models/video/play/url.dart';
 import 'package:pilipala/tv/controllers/tv_session_controller.dart';
 import 'package:pilipala/tv/models/tv_video_card_data.dart';
 import 'package:pilipala/tv/tv_routes.dart';
@@ -16,9 +21,19 @@ class TvHomeController extends GetxController {
   final RxnString error = RxnString();
   final RxInt selectedIndex = 0.obs;
   final RxBool autoFullscreenArmed = false.obs;
+  final RxBool previewPreparing = false.obs;
+  final RxBool previewReady = false.obs;
+  final RxnString previewError = RxnString();
+  final RxnString previewBvid = RxnString();
 
   Timer? _fullscreenTimer;
+  Timer? _previewTimer;
+  Player? _previewPlayer;
+  VideoController? _previewVideoController;
   int _fullscreenGeneration = 0;
+  int _previewGeneration = 0;
+
+  VideoController? get previewVideoController => _previewVideoController;
 
   bool get autoFullscreenEnabled => GStrorage.setting
       .get(SettingBoxKey.tvAutoFullscreenEnable, defaultValue: true) as bool;
@@ -53,6 +68,7 @@ class TvHomeController extends GetxController {
         items.value = List<RecVideoItemAppModel>.from(res['data'] as List);
         if (items.isNotEmpty) {
           selectedIndex.value = 0;
+          schedulePreviewAutoplay(immediate: true);
           scheduleAutoFullscreen();
         }
       } else {
@@ -73,6 +89,7 @@ class TvHomeController extends GetxController {
     }
     selectedIndex.value = index.clamp(0, items.length - 1);
     if (schedule) {
+      schedulePreviewAutoplay();
       scheduleAutoFullscreen();
     }
   }
@@ -100,9 +117,13 @@ class TvHomeController extends GetxController {
       return;
     }
     cancelAutoFullscreen();
+    pausePreview();
     Get.toNamed(
       '${TvRoutes.video}?bvid=${data.bvid}&cid=${data.cid}&aid=${data.aid}',
-    )?.whenComplete(scheduleAutoFullscreen);
+    )?.whenComplete(() {
+      schedulePreviewAutoplay(immediate: true);
+      scheduleAutoFullscreen();
+    });
   }
 
   void playSelected({bool immersive = false}) {
@@ -111,9 +132,153 @@ class TvHomeController extends GetxController {
       return;
     }
     cancelAutoFullscreen();
+    pausePreview();
     Get.toNamed(
       '${TvRoutes.player}?bvid=${data.bvid}&cid=${data.cid}&aid=${data.aid}&source=recommend&index=${selectedIndex.value}',
-    )?.whenComplete(scheduleAutoFullscreen);
+    )?.whenComplete(() {
+      schedulePreviewAutoplay(immediate: true);
+      scheduleAutoFullscreen();
+    });
+  }
+
+  void schedulePreviewAutoplay({bool immediate = false}) {
+    _previewTimer?.cancel();
+    final TvVideoCardData? data = selectedVideo;
+    if (data == null || data.bvid.isEmpty || data.cid <= 0) {
+      previewReady.value = false;
+      previewPreparing.value = false;
+      previewError.value = null;
+      previewBvid.value = null;
+      return;
+    }
+    final int generation = ++_previewGeneration;
+    _previewTimer = Timer(
+      immediate ? Duration.zero : const Duration(milliseconds: 650),
+      () {
+        _startPreview(data, generation);
+      },
+    );
+  }
+
+  Future<void> _startPreview(
+    TvVideoCardData data,
+    int generation,
+  ) async {
+    if (isClosed ||
+        generation != _previewGeneration ||
+        Get.currentRoute != TvRoutes.shell) {
+      return;
+    }
+    previewPreparing.value = true;
+    previewError.value = null;
+    try {
+      final dynamic res = await VideoHttp.videoUrl(
+        bvid: data.bvid,
+        cid: data.cid,
+        qn: VideoQuality.high720.code,
+      );
+      if (isClosed ||
+          generation != _previewGeneration ||
+          Get.currentRoute != TvRoutes.shell) {
+        return;
+      }
+      if (res['status'] != true) {
+        previewReady.value = false;
+        previewError.value = res['msg']?.toString() ?? '预览地址获取失败';
+        return;
+      }
+      final PlayUrlModel playData = res['data'] as PlayUrlModel;
+      final String videoUrl = _resolveVideoUrl(playData);
+      final String audioUrl = _resolveAudioUrl(playData);
+      if (videoUrl.isEmpty) {
+        previewReady.value = false;
+        previewError.value = '预览地址为空';
+        return;
+      }
+      await _openPreviewPlayer(videoUrl: videoUrl, audioUrl: audioUrl);
+      if (isClosed ||
+          generation != _previewGeneration ||
+          Get.currentRoute != TvRoutes.shell) {
+        return;
+      }
+      previewBvid.value = data.bvid;
+      previewReady.value = _previewVideoController != null;
+    } catch (e) {
+      if (generation == _previewGeneration) {
+        previewReady.value = false;
+        previewError.value = '预览播放失败';
+      }
+    } finally {
+      if (generation == _previewGeneration) {
+        previewPreparing.value = false;
+      }
+    }
+  }
+
+  String _resolveVideoUrl(PlayUrlModel playData) {
+    final List<Durl>? durl = playData.durl;
+    if (durl != null && durl.isNotEmpty && (durl.first.url ?? '').isNotEmpty) {
+      return durl.first.url!;
+    }
+    final List<VideoItem>? dashVideos = playData.dash?.video;
+    if (dashVideos != null && dashVideos.isNotEmpty) {
+      return dashVideos.first.baseUrl ?? dashVideos.first.backupUrl ?? '';
+    }
+    return '';
+  }
+
+  String _resolveAudioUrl(PlayUrlModel playData) {
+    final List<AudioItem>? dashAudios = playData.dash?.audio;
+    if (dashAudios != null && dashAudios.isNotEmpty) {
+      return dashAudios.first.baseUrl ?? dashAudios.first.backupUrl ?? '';
+    }
+    return '';
+  }
+
+  void pausePreview() {
+    _previewGeneration++;
+    _previewTimer?.cancel();
+    _previewTimer = null;
+    previewReady.value = false;
+    previewPreparing.value = false;
+    _previewPlayer?.pause();
+  }
+
+  Future<void> _openPreviewPlayer({
+    required String videoUrl,
+    required String audioUrl,
+  }) async {
+    final Player player = _previewPlayer ??= Player(
+      configuration: const PlayerConfiguration(
+        bufferSize: 5 * 1024 * 1024,
+      ),
+    );
+    _previewVideoController ??= VideoController(
+      player,
+      configuration: const VideoControllerConfiguration(
+        enableHardwareAcceleration: false,
+        androidAttachSurfaceAfterVideoParameters: false,
+      ),
+    );
+    final NativePlayer nativePlayer = player.platform as NativePlayer;
+    if (audioUrl.isNotEmpty) {
+      await nativePlayer.setProperty(
+          'audio-files', audioUrl.replaceAll(':', r'\:'));
+    } else {
+      await nativePlayer.setProperty('audio-files', '');
+    }
+    await player.setPlaylistMode(PlaylistMode.none);
+    await player.open(
+      Media(
+        videoUrl,
+        httpHeaders: const <String, String>{
+          'user-agent':
+              'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Mobile Safari/537.36',
+          'referer': HttpString.baseUrl,
+        },
+      ),
+      play: true,
+    );
   }
 
   void scheduleAutoFullscreen() {
@@ -159,8 +324,10 @@ class TvHomeController extends GetxController {
   void applyAutoFullscreenSettings() {
     if (Get.currentRoute != TvRoutes.shell) {
       cancelAutoFullscreen();
+      pausePreview();
       return;
     }
+    schedulePreviewAutoplay(immediate: true);
     if (autoFullscreenEnabled && items.isNotEmpty) {
       scheduleAutoFullscreen();
     } else {
@@ -177,6 +344,8 @@ class TvHomeController extends GetxController {
   @override
   void onClose() {
     cancelAutoFullscreen();
+    _previewTimer?.cancel();
+    _previewPlayer?.dispose();
     super.onClose();
   }
 }
