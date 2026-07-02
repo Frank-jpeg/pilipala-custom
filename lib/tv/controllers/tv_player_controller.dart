@@ -23,12 +23,14 @@ class TvPlayerController extends GetxController {
   int _cid = 0;
   int _aid = 0;
   int _recommendIndex = 0;
+  int _startSeconds = 0;
   bool _isRecommendSource = false;
 
   String get bvid => _bvid;
   int get cid => _cid;
   int get aid => _aid;
   int get recommendIndex => _recommendIndex;
+  int get startSeconds => _startSeconds;
   bool get isRecommendSource => _isRecommendSource;
 
   Worker? _positionWorker;
@@ -40,21 +42,24 @@ class TvPlayerController extends GetxController {
     _cid = int.tryParse(Get.parameters['cid'] ?? '0') ?? 0;
     _aid = int.tryParse(Get.parameters['aid'] ?? '0') ?? 0;
     _recommendIndex = int.tryParse(Get.parameters['index'] ?? '0') ?? 0;
+    _startSeconds =
+        (int.tryParse(Get.parameters['start'] ?? '0') ?? 0).clamp(0, 86400);
     _isRecommendSource = Get.parameters['source'] == 'recommend';
   }
 
   Future<void> initPlayer() async {
     if (isRecommendSource && Get.isRegistered<TvHomeController>()) {
-      await playRecommendIndex(recommendIndex);
+      await playRecommendIndex(recommendIndex, startSeconds: startSeconds);
       return;
     }
-    await playByParams(bvid: bvid, cid: cid);
+    await playByParams(bvid: bvid, cid: cid, startSeconds: startSeconds);
   }
 
   Future<void> playByParams({
     required String bvid,
     required int cid,
     String? title,
+    int startSeconds = 0,
   }) async {
     loading.value = true;
     error.value = null;
@@ -104,6 +109,7 @@ class TvPlayerController extends GetxController {
         ),
         autoplay: true,
         enableHA: false,
+        seekTo: Duration(seconds: startSeconds.clamp(0, 86400)),
         bvid: bvid,
         cid: cid,
       );
@@ -118,7 +124,7 @@ class TvPlayerController extends GetxController {
     }
   }
 
-  Future<void> playRecommendIndex(int index) async {
+  Future<void> playRecommendIndex(int index, {int startSeconds = 0}) async {
     if (!Get.isRegistered<TvHomeController>()) {
       return;
     }
@@ -135,7 +141,12 @@ class TvPlayerController extends GetxController {
       loading.value = false;
       return;
     }
-    await playByParams(bvid: data.bvid, cid: data.cid, title: data.title);
+    await playByParams(
+      bvid: data.bvid,
+      cid: data.cid,
+      title: data.title,
+      startSeconds: startSeconds,
+    );
   }
 
   Future<void> playNextRecommend() async {
@@ -144,6 +155,7 @@ class TvPlayerController extends GetxController {
     }
     final TvHomeController home = Get.find<TvHomeController>();
     home.selectNext(schedule: false);
+    _startSeconds = 0;
     await playRecommendIndex(home.selectedIndex.value);
   }
 
@@ -153,6 +165,7 @@ class TvPlayerController extends GetxController {
     }
     final TvHomeController home = Get.find<TvHomeController>();
     home.selectPrevious(schedule: false);
+    _startSeconds = 0;
     await playRecommendIndex(home.selectedIndex.value);
   }
 

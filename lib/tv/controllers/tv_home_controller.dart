@@ -139,15 +139,24 @@ class TvHomeController extends GetxController {
     if (data == null || data.bvid.isEmpty || data.cid <= 0) {
       return;
     }
+    final int startSeconds = _previewStartSecondsFor(data);
     cancelAutoFullscreen();
     pausePreview();
     Get.toNamed(
-      '${TvRoutes.player}?bvid=${data.bvid}&cid=${data.cid}&aid=${data.aid}&source=recommend&index=${selectedIndex.value}',
+      '${TvRoutes.player}?bvid=${data.bvid}&cid=${data.cid}&aid=${data.aid}&source=recommend&index=${selectedIndex.value}&start=$startSeconds',
     )?.whenComplete(() {
       markRecommendStageActive(true);
       schedulePreviewAutoplay(immediate: true);
       scheduleAutoFullscreen();
     });
+  }
+
+  int _previewStartSecondsFor(TvVideoCardData data) {
+    if (previewBvid.value != data.bvid) {
+      return 0;
+    }
+    final int seconds = _previewPlayer?.state.position.inSeconds ?? 0;
+    return seconds > 3 ? seconds : 0;
   }
 
   void markRecommendStageActive(bool active) {
