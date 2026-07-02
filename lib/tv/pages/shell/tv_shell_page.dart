@@ -44,7 +44,7 @@ class _TvShellPageState extends State<TvShellPage> {
                     setState(() {
                       _selectedIndex = 0;
                     });
-                    _controller.scheduleAutoFullscreen();
+                    _controller.markRecommendStageActive(true);
                     _recommendFocusNode.requestFocus();
                   },
                 ),
@@ -52,9 +52,9 @@ class _TvShellPageState extends State<TvShellPage> {
                   label: '搜索',
                   icon: Icons.search,
                   onTap: () {
-                    _controller.cancelAutoFullscreen();
+                    _controller.markRecommendStageActive(false);
                     Get.toNamed(TvRoutes.search)?.whenComplete(
-                      _controller.scheduleAutoFullscreen,
+                      () => _controller.markRecommendStageActive(true),
                     );
                   },
                 ),
@@ -62,9 +62,9 @@ class _TvShellPageState extends State<TvShellPage> {
                   label: '媒体库',
                   icon: Icons.video_library_outlined,
                   onTap: () {
-                    _controller.cancelAutoFullscreen();
+                    _controller.markRecommendStageActive(false);
                     Get.toNamed(TvRoutes.library)?.whenComplete(
-                      _controller.scheduleAutoFullscreen,
+                      () => _controller.markRecommendStageActive(true),
                     );
                   },
                 ),
@@ -72,9 +72,9 @@ class _TvShellPageState extends State<TvShellPage> {
                   label: session.isLogin.value ? '我的' : '登录',
                   icon: Icons.account_circle_outlined,
                   onTap: () {
-                    _controller.cancelAutoFullscreen();
+                    _controller.markRecommendStageActive(false);
                     Get.toNamed(TvRoutes.login)?.whenComplete(
-                      _controller.scheduleAutoFullscreen,
+                      () => _controller.markRecommendStageActive(true),
                     );
                   },
                 ),
@@ -82,9 +82,9 @@ class _TvShellPageState extends State<TvShellPage> {
                   label: '设置',
                   icon: Icons.settings_outlined,
                   onTap: () {
-                    _controller.cancelAutoFullscreen();
+                    _controller.markRecommendStageActive(false);
                     Get.toNamed(TvRoutes.settings)?.whenComplete(
-                      _controller.scheduleAutoFullscreen,
+                      () => _controller.markRecommendStageActive(true),
                     );
                   },
                 ),
@@ -133,8 +133,7 @@ class _TvShellPageState extends State<TvShellPage> {
         _controller.openSelectedDetail();
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowLeft:
-        _controller.cancelAutoFullscreen();
-        _controller.pausePreview();
+        _controller.markRecommendStageActive(false);
         _navFocusNodes[_selectedIndex.clamp(0, _navFocusNodes.length - 1)]
             .requestFocus();
         return KeyEventResult.handled;

@@ -32,8 +32,12 @@ class TvHomeController extends GetxController {
   VideoController? _previewVideoController;
   int _fullscreenGeneration = 0;
   int _previewGeneration = 0;
+  bool _recommendStageActive = true;
 
   VideoController? get previewVideoController => _previewVideoController;
+
+  bool get _canAutoActOnRecommend =>
+      !isClosed && _recommendStageActive && items.isNotEmpty;
 
   bool get autoFullscreenEnabled => GStrorage.setting
       .get(SettingBoxKey.tvAutoFullscreenEnable, defaultValue: true) as bool;
@@ -121,6 +125,7 @@ class TvHomeController extends GetxController {
     Get.toNamed(
       '${TvRoutes.video}?bvid=${data.bvid}&cid=${data.cid}&aid=${data.aid}',
     )?.whenComplete(() {
+      markRecommendStageActive(true);
       schedulePreviewAutoplay(immediate: true);
       scheduleAutoFullscreen();
     });
@@ -136,15 +141,30 @@ class TvHomeController extends GetxController {
     Get.toNamed(
       '${TvRoutes.player}?bvid=${data.bvid}&cid=${data.cid}&aid=${data.aid}&source=recommend&index=${selectedIndex.value}',
     )?.whenComplete(() {
+      markRecommendStageActive(true);
       schedulePreviewAutoplay(immediate: true);
       scheduleAutoFullscreen();
     });
   }
 
+  void markRecommendStageActive(bool active) {
+    _recommendStageActive = active;
+    if (!active) {
+      cancelAutoFullscreen();
+      pausePreview();
+      return;
+    }
+    schedulePreviewAutoplay(immediate: true);
+    scheduleAutoFullscreen();
+  }
+
   void schedulePreviewAutoplay({bool immediate = false}) {
     _previewTimer?.cancel();
     final TvVideoCardData? data = selectedVideo;
-    if (data == null || data.bvid.isEmpty || data.cid <= 0) {
+    if (!_recommendStageActive ||
+        data == null ||
+        data.bvid.isEmpty ||
+        data.cid <= 0) {
       previewReady.value = false;
       previewPreparing.value = false;
       previewError.value = null;
@@ -164,9 +184,7 @@ class TvHomeController extends GetxController {
     TvVideoCardData data,
     int generation,
   ) async {
-    if (isClosed ||
-        generation != _previewGeneration ||
-        Get.currentRoute != TvRoutes.shell) {
+    if (!_canAutoActOnRecommend || generation != _previewGeneration) {
       return;
     }
     previewPreparing.value = true;
@@ -177,9 +195,7 @@ class TvHomeController extends GetxController {
         cid: data.cid,
         qn: VideoQuality.high720.code,
       );
-      if (isClosed ||
-          generation != _previewGeneration ||
-          Get.currentRoute != TvRoutes.shell) {
+      if (!_canAutoActOnRecommend || generation != _previewGeneration) {
         return;
       }
       if (res['status'] != true) {
@@ -196,9 +212,7 @@ class TvHomeController extends GetxController {
         return;
       }
       await _openPreviewPlayer(videoUrl: videoUrl, audioUrl: audioUrl);
-      if (isClosed ||
-          generation != _previewGeneration ||
-          Get.currentRoute != TvRoutes.shell) {
+      if (!_canAutoActOnRecommend || generation != _previewGeneration) {
         return;
       }
       previewBvid.value = data.bvid;
@@ -283,9 +297,7 @@ class TvHomeController extends GetxController {
 
   void scheduleAutoFullscreen() {
     cancelAutoFullscreen();
-    if (!autoFullscreenEnabled ||
-        items.isEmpty ||
-        Get.currentRoute != TvRoutes.shell) {
+    if (!autoFullscreenEnabled || !_canAutoActOnRecommend) {
       return;
     }
     final int generation = ++_fullscreenGeneration;
@@ -294,8 +306,7 @@ class TvHomeController extends GetxController {
           _fullscreenTimer != null ||
           generation != _fullscreenGeneration ||
           !autoFullscreenEnabled ||
-          items.isEmpty ||
-          Get.currentRoute != TvRoutes.shell) {
+          !_canAutoActOnRecommend) {
         return;
       }
       autoFullscreenArmed.value = true;
@@ -303,8 +314,7 @@ class TvHomeController extends GetxController {
           Timer(Duration(seconds: autoFullscreenDelaySeconds), () {
         if (generation != _fullscreenGeneration ||
             !autoFullscreenEnabled ||
-            items.isEmpty ||
-            Get.currentRoute != TvRoutes.shell) {
+            !_canAutoActOnRecommend) {
           autoFullscreenArmed.value = false;
           return;
         }
@@ -322,7 +332,7 @@ class TvHomeController extends GetxController {
   }
 
   void applyAutoFullscreenSettings() {
-    if (Get.currentRoute != TvRoutes.shell) {
+    if (!_recommendStageActive) {
       cancelAutoFullscreen();
       pausePreview();
       return;
