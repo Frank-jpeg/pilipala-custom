@@ -200,7 +200,19 @@ class LoginHttp {
       Api.loginInByPwdApi,
       data: data,
     );
-    print(res);
+    if (res.data['code'] == 0) {
+      return {
+        'status': true,
+        'data': res.data['data'],
+        'headers': res.headers,
+      };
+    } else {
+      return {
+        'status': false,
+        'data': res.data['data'] ?? [],
+        'msg': res.data['message'],
+      };
+    }
   }
 
   // web端密码登录
@@ -233,6 +245,7 @@ class LoginHttp {
         return {
           'status': true,
           'data': res.data['data'],
+          'headers': res.headers,
         };
       } else {
         return {
@@ -258,6 +271,7 @@ class LoginHttp {
       return {
         'status': true,
         'data': res.data['data'],
+        'headers': res.headers,
       };
     } else {
       return {'status': false, 'data': [], 'msg': res.data['message']};
@@ -272,6 +286,7 @@ class LoginHttp {
       return {
         'status': true,
         'data': res.data['data'],
+        'headers': res.headers,
       };
     } else {
       return {'status': false, 'data': [], 'msg': res.data['message']};

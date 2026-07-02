@@ -42,10 +42,16 @@ class _WebviewPageState extends State<WebviewPage> {
                   color: Theme.of(context).colorScheme.primary),
             ),
             Obx(
-              () => _webviewController.type.value == 'login'
+              () => (_webviewController.type.value == 'login' ||
+                      _webviewController.type.value == 'tvLogin')
                   ? TextButton(
-                      onPressed: () =>
-                          LoginUtils.confirmLogin(null, _webviewController),
+                      onPressed: () {
+                        if (_webviewController.type.value == 'tvLogin') {
+                          _webviewController.confirmTvLogin();
+                        } else {
+                          LoginUtils.confirmLogin(null, _webviewController);
+                        }
+                      },
                       child: const Text('刷新登录状态'),
                     )
                   : const SizedBox(),
@@ -66,7 +72,8 @@ class _WebviewPageState extends State<WebviewPage> {
                 ),
               ),
             ),
-            if (_webviewController.type.value == 'login')
+            if (_webviewController.type.value == 'login' ||
+                _webviewController.type.value == 'tvLogin')
               Container(
                 width: double.infinity,
                 color: Theme.of(context).colorScheme.onInverseSurface,

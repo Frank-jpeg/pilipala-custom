@@ -1,6 +1,7 @@
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:hive/hive.dart';
+import 'package:pilipala/http/init.dart';
 import 'package:pilipala/http/user.dart';
 import 'package:pilipala/models/user/info.dart';
 import 'package:pilipala/utils/storage.dart';
@@ -15,21 +16,19 @@ class TvSessionController extends GetxController {
     isLogin.value = userInfo.value?.mid != null;
   }
 
-  Future<bool> syncUserFromServer({bool silent = false}) async {
+  Future<bool> syncUserFromServer({
+    bool silent = false,
+    bool clearOnFailure = true,
+  }) async {
     try {
       final dynamic result = await UserHttp.userInfo();
       if (result['status'] == true && result['data']?.isLogin == true) {
-        Box<dynamic> userInfoCache = GStrorage.userInfo;
-        if (!userInfoCache.isOpen) {
-          userInfoCache = await Hive.openBox<dynamic>('userInfo');
-        }
-        await userInfoCache.put('userInfoCache', result['data']);
-        userInfo.value = result['data'];
-        isLogin.value = true;
-        refreshTick.value++;
+        await applyLoginUser(result['data'] as UserInfoData);
         return true;
       }
-      await clearLoginState();
+      if (clearOnFailure) {
+        await clearLoginState();
+      }
       if (!silent) {
         SmartDialog.showToast(result['msg']?.toString() ?? '登录状态无效');
       }
@@ -47,5 +46,18 @@ class TvSessionController extends GetxController {
     isLogin.value = false;
     refreshTick.value++;
     await GStrorage.userInfo.delete('userInfoCache');
+    await Request.cookieManager.cookieJar.deleteAll();
+    Request.dio.options.headers['cookie'] = '';
+  }
+
+  Future<void> applyLoginUser(UserInfoData user) async {
+    Box<dynamic> userInfoCache = GStrorage.userInfo;
+    if (!userInfoCache.isOpen) {
+      userInfoCache = await Hive.openBox<dynamic>('userInfo');
+    }
+    await userInfoCache.put('userInfoCache', user);
+    userInfo.value = user;
+    isLogin.value = true;
+    refreshTick.value++;
   }
 }

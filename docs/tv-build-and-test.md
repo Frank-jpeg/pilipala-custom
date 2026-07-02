@@ -36,6 +36,7 @@ The TV MVP reuses the existing project API layer.
 - Video details use Web API: `https://api.bilibili.com/x/web-interface/view`.
 - Playback uses WBI Web API: `https://api.bilibili.com/x/player/wbi/playurl`.
 - Login QR in the TV UI currently uses the existing Web QR login flow.
+- TV login also provides an `账号登录` fallback that opens the same official Bilibili H5 login page used by the mobile app through WebView. Use this when QR login does not sync, or when password/SMS/risk verification is required.
 
 Reference projects checked on 2026-06-29:
 
@@ -128,10 +129,13 @@ Use the latest `tv` branch artifact from GitHub Actions or the local arm64 relea
 9. Press Back and confirm it returns to the correct previous page:
    - recommendation playback -> recommendation stage
    - detail playback -> detail page
-10. Enter `搜索` and confirm both `返回` and `搜索` buttons are focusable with DPAD.
-11. Enter `媒体库` and confirm the page is usable in both logged-in and not-logged-in states.
-12. Enter `设置` and confirm idle auto-fullscreen can be toggled and its delay can be adjusted.
-13. Confirm real playback has video and audio.
-14. Test Web QR login if account-only flows are needed.
+10. Enter `登录` and test both login paths:
+    - `扫码登录`: scan the TV QR code and confirm the app detects login state.
+    - `账号登录`: open the official WebView login page and confirm `刷新登录状态` syncs the account after login.
+11. Enter `搜索` and confirm both `返回` and `搜索` buttons are focusable with DPAD.
+12. Enter `媒体库` and confirm the page is usable in both logged-in and not-logged-in states.
+13. Enter `设置` and confirm idle auto-fullscreen can be toggled and its delay can be adjusted.
+14. Confirm real playback has video and audio.
+15. Test account-only flows after login if needed.
 
 If real-device playback is black, treat it as a player/play-url compatibility bug and inspect `TvPlayerController` plus the shared `PlPlayerController`/`media_kit` integration first.

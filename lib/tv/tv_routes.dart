@@ -1,4 +1,5 @@
 import 'package:get/get.dart';
+import 'package:pilipala/pages/webview/index.dart';
 import 'package:pilipala/tv/pages/library/tv_library_page.dart';
 import 'package:pilipala/tv/pages/login/tv_login_page.dart';
 import 'package:pilipala/tv/pages/player/tv_player_page.dart';
@@ -15,6 +16,7 @@ class TvRoutes {
   static const String video = '/video';
   static const String player = '/player';
   static const String settings = '/settings';
+  static const String webview = '/webview';
 
   static final List<GetPage<dynamic>> pages = <GetPage<dynamic>>[
     GetPage<dynamic>(name: shell, page: () => const TvShellPage()),
@@ -24,5 +26,6 @@ class TvRoutes {
     GetPage<dynamic>(name: video, page: () => const TvVideoPage()),
     GetPage<dynamic>(name: player, page: () => const TvPlayerPage()),
     GetPage<dynamic>(name: settings, page: () => const TvSettingsPage()),
+    GetPage<dynamic>(name: webview, page: () => const WebviewPage()),
   ];
 }

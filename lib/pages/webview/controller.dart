@@ -1,8 +1,11 @@
 import 'package:get/get.dart';
 import 'package:pilipala/http/init.dart';
+import 'package:pilipala/tv/controllers/tv_session_controller.dart';
+import 'package:pilipala/utils/cookie.dart';
 import 'package:pilipala/utils/event_bus.dart';
 import 'package:pilipala/utils/id_utils.dart';
 import 'package:pilipala/utils/login.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 class WebviewController extends GetxController {
@@ -13,6 +16,7 @@ class WebviewController extends GetxController {
   RxInt loadProgress = 0.obs;
   RxBool loadShow = true.obs;
   EventBus eventBus = EventBus();
+  bool _syncingTvLogin = false;
 
   @override
   void onInit() {
@@ -21,7 +25,7 @@ class WebviewController extends GetxController {
     type.value = Get.parameters['type']!;
     pageTitle = Get.parameters['pageTitle']!;
 
-    if (type.value == 'login') {
+    if (_isLoginPage) {
       controller.clearCache();
       controller.clearLocalStorage();
       WebViewCookieManager().clearCookies();
@@ -42,7 +46,8 @@ class WebviewController extends GetxController {
           },
           onPageStarted: (String url) {
             final List pathSegments = Uri.parse(url).pathSegments;
-            if (pathSegments.isNotEmpty &&
+            if (type.value != 'tvLogin' &&
+                pathSegments.isNotEmpty &&
                 url != 'https://passport.bilibili.com/h5-app/passport/login') {
               final String str = pathSegments[0];
               final Map matchRes = IdUtils.matchAvorBv(input: str);
@@ -66,6 +71,8 @@ class WebviewController extends GetxController {
                         'https://passport.bilibili.com/web/sso/exchange_cookie') ||
                     url.startsWith('https://m.bilibili.com/'))) {
               LoginUtils.confirmLogin(url, controller);
+            } else if (type.value == 'tvLogin' && _looksLikeLoginDone(url)) {
+              confirmTvLogin();
             }
           },
           onWebResourceError: (WebResourceError error) {},
@@ -85,5 +92,40 @@ class WebviewController extends GetxController {
         ),
       )
       ..loadRequest(Uri.parse(url.startsWith('http') ? url : 'https://$url'));
+  }
+
+  bool get _isLoginPage => type.value == 'login' || type.value == 'tvLogin';
+
+  bool _looksLikeLoginDone(String url) {
+    return url.startsWith(
+            'https://passport.bilibili.com/web/sso/exchange_cookie') ||
+        url.startsWith('https://m.bilibili.com/') ||
+        url.startsWith('https://www.bilibili.com/');
+  }
+
+  Future<void> confirmTvLogin() async {
+    if (_syncingTvLogin) {
+      return;
+    }
+    _syncingTvLogin = true;
+    try {
+      await SetCookie.onSet();
+      if (!Get.isRegistered<TvSessionController>()) {
+        SmartDialog.showToast('TV 登录状态控制器未初始化');
+        return;
+      }
+      final bool success = await Get.find<TvSessionController>()
+          .syncUserFromServer(silent: true, clearOnFailure: false);
+      if (success) {
+        SmartDialog.showToast('登录成功');
+        Get.back();
+      } else {
+        SmartDialog.showToast('还没有检测到登录状态');
+      }
+    } catch (e) {
+      SmartDialog.showToast('同步网页登录状态失败: $e');
+    } finally {
+      _syncingTvLogin = false;
+    }
   }
 }
