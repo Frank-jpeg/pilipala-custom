@@ -150,49 +150,350 @@ Future<String?> showTvPinDialog(
   required String title,
   String confirmLabel = '确认',
 }) {
-  final TextEditingController textController = TextEditingController();
   return showDialog<String>(
     context: context,
     barrierDismissible: false,
     builder: (BuildContext context) {
-      return AlertDialog(
-        backgroundColor: const Color(0xFF121A2B),
-        title: Text(title),
-        content: TextField(
-          controller: textController,
-          autofocus: true,
-          maxLength: 4,
-          keyboardType: TextInputType.number,
-          obscureText: true,
-          inputFormatters: <TextInputFormatter>[
-            FilteringTextInputFormatter.digitsOnly,
-            LengthLimitingTextInputFormatter(4),
-          ],
-          decoration: const InputDecoration(
-            counterText: '',
-            hintText: '请输入 4 位数字',
-          ),
-          onSubmitted: (_) {
-            if (textController.text.length == 4) {
-              Navigator.of(context).pop(textController.text);
-            }
-          },
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (textController.text.length == 4) {
-                Navigator.of(context).pop(textController.text);
-              }
-            },
-            child: Text(confirmLabel),
-          ),
-        ],
-      );
+      return _TvPinDialog(title: title, confirmLabel: confirmLabel);
     },
   );
+}
+
+class _TvPinDialog extends StatefulWidget {
+  const _TvPinDialog({
+    required this.title,
+    required this.confirmLabel,
+  });
+
+  final String title;
+  final String confirmLabel;
+
+  @override
+  State<_TvPinDialog> createState() => _TvPinDialogState();
+}
+
+class _TvPinDialogState extends State<_TvPinDialog> {
+  String _pin = '';
+
+  void _appendDigit(String digit) {
+    if (_pin.length >= 4) {
+      return;
+    }
+    setState(() {
+      _pin = '$_pin$digit';
+    });
+  }
+
+  void _deleteDigit() {
+    if (_pin.isEmpty) {
+      return;
+    }
+    setState(() {
+      _pin = _pin.substring(0, _pin.length - 1);
+    });
+  }
+
+  void _clearPin() {
+    if (_pin.isEmpty) {
+      return;
+    }
+    setState(() {
+      _pin = '';
+    });
+  }
+
+  void _submit() {
+    if (_pin.length == 4) {
+      Navigator.of(context).pop(_pin);
+    }
+  }
+
+  KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) {
+      return KeyEventResult.ignored;
+    }
+    final LogicalKeyboardKey key = event.logicalKey;
+    final String label = key.keyLabel;
+    if (label.length == 1 && RegExp(r'\d').hasMatch(label)) {
+      _appendDigit(label);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.backspace ||
+        key == LogicalKeyboardKey.delete) {
+      _deleteDigit();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.escape ||
+        key == LogicalKeyboardKey.goBack ||
+        key == LogicalKeyboardKey.browserBack) {
+      Navigator.of(context).pop();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: const Color(0xFF121A2B),
+      title: Text(widget.title),
+      content: Focus(
+        onKeyEvent: _handleKey,
+        child: SizedBox(
+          width: 640,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(child: _PinPreview(pinLength: _pin.length)),
+              const SizedBox(width: 28),
+              _PinNumberPad(
+                onDigit: _appendDigit,
+                onDelete: _deleteDigit,
+                onClear: _clearPin,
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: <Widget>[
+        TvFocusableButton(
+          icon: Icons.close,
+          label: '取消',
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        TvFocusableButton(
+          icon: Icons.check,
+          label: widget.confirmLabel,
+          onPressed: _submit,
+        ),
+      ],
+    );
+  }
+}
+
+class _PinPreview extends StatelessWidget {
+  const _PinPreview({required this.pinLength});
+
+  final int pinLength;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          const Text(
+            '家长 PIN',
+            style: TextStyle(color: Colors.white70, fontSize: 17),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: List<Widget>.generate(
+              4,
+              (int index) => Container(
+                width: 46,
+                height: 56,
+                margin: EdgeInsets.only(right: index == 3 ? 0 : 10),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.22),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: index < pinLength
+                        ? const Color(0xFFFF7BAC)
+                        : Colors.white24,
+                  ),
+                ),
+                child: Text(
+                  index < pinLength ? '•' : '',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 30,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          const Text(
+            '方向键选择右侧数字，OK 输入。',
+            style: TextStyle(color: Colors.white54, fontSize: 14),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PinNumberPad extends StatelessWidget {
+  const _PinNumberPad({
+    required this.onDigit,
+    required this.onDelete,
+    required this.onClear,
+  });
+
+  final ValueChanged<String> onDigit;
+  final VoidCallback onDelete;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return FocusTraversalGroup(
+      child: SizedBox(
+        width: 276,
+        child: Column(
+          children: <Widget>[
+            for (final List<_PinPadKey> row in const <List<_PinPadKey>>[
+              <_PinPadKey>[
+                _PinPadKey('1', '1'),
+                _PinPadKey('2', '2'),
+                _PinPadKey('3', '3'),
+              ],
+              <_PinPadKey>[
+                _PinPadKey('4', '4'),
+                _PinPadKey('5', '5'),
+                _PinPadKey('6', '6'),
+              ],
+              <_PinPadKey>[
+                _PinPadKey('7', '7'),
+                _PinPadKey('8', '8'),
+                _PinPadKey('9', '9'),
+              ],
+              <_PinPadKey>[
+                _PinPadKey('清空', 'clear'),
+                _PinPadKey('0', '0'),
+                _PinPadKey('删除', 'delete'),
+              ],
+            ]) ...<Widget>[
+              Row(
+                children: <Widget>[
+                  for (final _PinPadKey item in row) ...<Widget>[
+                    Expanded(
+                      child: _PinPadButton(
+                        autofocus: item.value == '1',
+                        label: item.label,
+                        onPressed: () {
+                          switch (item.value) {
+                            case 'clear':
+                              onClear();
+                              break;
+                            case 'delete':
+                              onDelete();
+                              break;
+                            default:
+                              onDigit(item.value);
+                          }
+                        },
+                      ),
+                    ),
+                    if (item != row.last) const SizedBox(width: 10),
+                  ],
+                ],
+              ),
+              if (row !=
+                  const <_PinPadKey>[
+                    _PinPadKey('清空', 'clear'),
+                    _PinPadKey('0', '0'),
+                    _PinPadKey('删除', 'delete'),
+                  ])
+                const SizedBox(height: 10),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PinPadKey {
+  const _PinPadKey(this.label, this.value);
+
+  final String label;
+  final String value;
+}
+
+class _PinPadButton extends StatefulWidget {
+  const _PinPadButton({
+    required this.label,
+    required this.onPressed,
+    this.autofocus = false,
+  });
+
+  final String label;
+  final VoidCallback onPressed;
+  final bool autofocus;
+
+  @override
+  State<_PinPadButton> createState() => _PinPadButtonState();
+}
+
+class _PinPadButtonState extends State<_PinPadButton> {
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme colorScheme = Theme.of(context).colorScheme;
+    return Focus(
+      autofocus: widget.autofocus,
+      onKeyEvent: (FocusNode node, KeyEvent event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.select ||
+                event.logicalKey == LogicalKeyboardKey.enter)) {
+          widget.onPressed();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      onFocusChange: (bool value) {
+        setState(() {
+          _focused = value;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        height: 62,
+        alignment: Alignment.center,
+        transform: Matrix4.identity()..scale(_focused ? 1.04 : 1.0),
+        decoration: BoxDecoration(
+          color: _focused ? colorScheme.primary : colorScheme.surface,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: _focused ? Colors.white : Colors.white12,
+            width: _focused ? 2 : 1,
+          ),
+          boxShadow: _focused
+              ? <BoxShadow>[
+                  BoxShadow(
+                    color: colorScheme.primary.withOpacity(0.4),
+                    blurRadius: 18,
+                    spreadRadius: 1,
+                  ),
+                ]
+              : null,
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: widget.onPressed,
+          child: Center(
+            child: Text(
+              widget.label,
+              style: TextStyle(
+                color: _focused ? Colors.white : colorScheme.onSurface,
+                fontSize: widget.label.length == 1 ? 28 : 17,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

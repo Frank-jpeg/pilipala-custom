@@ -130,6 +130,8 @@ QQ 频道: https://pd.qq.com/s/365esodk3
 
 说明：手机端 App 内更新只认正式 GitHub Release；TV 版走 `tv-latest` Release 的固定直链，便于在项目主页直接点击下载安装。Actions artifact 只作为构建记录和临时测试产物。
 
+TV 版当前提供 `扫码登录`、`手机号登录`、`网页登录兜底` 三种登录路径；在遥控器场景下，手机号点选验证码和网页登录风控页都支持方向键移动光标、`OK` 点击。
+
 ### 从 F-Droid 安装
 
 <a href="https://f-droid.org/packages/com.guozhigq.pilipala">

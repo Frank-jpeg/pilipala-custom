@@ -26,6 +26,7 @@ class TvLoginController extends GetxController {
   final RxInt smsCountdown = 0.obs;
   final RxBool smsSending = false.obs;
   final RxBool smsLoggingIn = false.obs;
+  final RxBool captchaVisible = false.obs;
   final Gt3FlutterPlugin captcha = Gt3FlutterPlugin();
   Timer? pollTimer;
   Timer? smsTimer;
@@ -230,27 +231,31 @@ class TvLoginController extends GetxController {
   Future<CaptchaDataModel?> _requestCaptcha() async {
     SmartDialog.showLoading(msg: '请求验证中...');
     try {
-      final dynamic result = await LoginHttp.queryCaptcha();
-      if (result['status'] != true) {
+      final dynamic captchaResponse = await LoginHttp.queryCaptcha();
+      if (captchaResponse['status'] != true) {
         SmartDialog.dismiss();
-        error.value = result['msg']?.toString() ?? '获取验证失败';
+        error.value = captchaResponse['msg']?.toString() ?? '获取验证失败';
         return null;
       }
-      final CaptchaDataModel captchaData = result['data'] as CaptchaDataModel;
+      final CaptchaDataModel captchaData =
+          captchaResponse['data'] as CaptchaDataModel;
       final Completer<CaptchaDataModel?> completer =
           Completer<CaptchaDataModel?>();
       captcha.addEventHandler(
         onShow: (Map<String, dynamic> message) async {
           SmartDialog.dismiss();
+          captchaVisible.value = true;
         },
         onClose: (Map<String, dynamic> message) async {
           SmartDialog.dismiss();
+          captchaVisible.value = false;
           if (!completer.isCompleted) {
             completer.complete(null);
           }
         },
         onResult: (Map<String, dynamic> message) async {
           SmartDialog.dismiss();
+          captchaVisible.value = false;
           final String code = message['code']?.toString() ?? '';
           if (code == '1') {
             captchaData.validate = message['result']['geetest_validate'];
@@ -266,6 +271,7 @@ class TvLoginController extends GetxController {
         },
         onError: (Map<String, dynamic> message) async {
           SmartDialog.dismiss();
+          captchaVisible.value = false;
           if (!completer.isCompleted) {
             completer.completeError(message['message'] ?? message.toString());
           }
@@ -277,12 +283,15 @@ class TvLoginController extends GetxController {
         success: true,
       );
       captcha.startCaptcha(registerData);
-      return completer.future.timeout(
+      final CaptchaDataModel? captchaResult = await completer.future.timeout(
         const Duration(seconds: 90),
         onTimeout: () => null,
       );
+      captchaVisible.value = false;
+      return captchaResult;
     } catch (e) {
       SmartDialog.dismiss();
+      captchaVisible.value = false;
       error.value = '验证失败: $e';
       return null;
     }
@@ -420,6 +429,7 @@ class TvLoginController extends GetxController {
   void onClose() {
     pollTimer?.cancel();
     smsTimer?.cancel();
+    captchaVisible.value = false;
     super.onClose();
   }
 }

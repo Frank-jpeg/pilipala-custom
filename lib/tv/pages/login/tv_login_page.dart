@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:pilipala/tv/controllers/tv_login_controller.dart';
@@ -14,7 +15,119 @@ class TvLoginPage extends StatefulWidget {
 }
 
 class _TvLoginPageState extends State<TvLoginPage> {
+  static const MethodChannel _tvPointerChannel =
+      MethodChannel('pilipala/tv_pointer');
+  static const double _pointerRadius = 13;
+  static const double _pointerStep = 30;
+
   final TvLoginController controller = Get.put(TvLoginController());
+  final FocusNode _captchaPointerFocusNode =
+      FocusNode(debugLabel: 'tvCaptchaPointer');
+  final GlobalKey _captchaPointerAreaKey = GlobalKey();
+  Offset _captchaPointer = Offset.zero;
+  Size _captchaPointerBounds = Size.zero;
+
+  @override
+  void dispose() {
+    _captchaPointerFocusNode.dispose();
+    super.dispose();
+  }
+
+  KeyEventResult _handleCaptchaPointerKey(FocusNode node, KeyEvent event) {
+    if (!controller.captchaVisible.value || event is! KeyDownEvent) {
+      return KeyEventResult.ignored;
+    }
+    switch (event.logicalKey) {
+      case LogicalKeyboardKey.arrowLeft:
+        _moveCaptchaPointer(const Offset(-_pointerStep, 0));
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.arrowRight:
+        _moveCaptchaPointer(const Offset(_pointerStep, 0));
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.arrowUp:
+        _moveCaptchaPointer(const Offset(0, -_pointerStep));
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.arrowDown:
+        _moveCaptchaPointer(const Offset(0, _pointerStep));
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.select:
+      case LogicalKeyboardKey.enter:
+        _tapCaptchaPointer();
+        return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  void _moveCaptchaPointer(Offset delta) {
+    if (_captchaPointerBounds == Size.zero) {
+      return;
+    }
+    setState(() {
+      _captchaPointer =
+          _clampCaptchaPointer(_captchaPointer + delta, _captchaPointerBounds);
+    });
+  }
+
+  Offset _clampCaptchaPointer(Offset value, Size bounds) {
+    const double minX = _pointerRadius;
+    const double minY = _pointerRadius;
+    final double maxX = bounds.width > _pointerRadius * 2
+        ? bounds.width - _pointerRadius
+        : minX;
+    final double maxY = bounds.height > _pointerRadius * 2
+        ? bounds.height - _pointerRadius
+        : minY;
+    return Offset(
+      value.dx.clamp(minX, maxX).toDouble(),
+      value.dy.clamp(minY, maxY).toDouble(),
+    );
+  }
+
+  void _syncCaptchaPointerBounds(Size bounds) {
+    if (!controller.captchaVisible.value ||
+        bounds.width <= 0 ||
+        bounds.height <= 0) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !controller.captchaVisible.value) {
+        return;
+      }
+      setState(() {
+        final bool firstLayout = _captchaPointerBounds == Size.zero;
+        _captchaPointerBounds = bounds;
+        _captchaPointer = firstLayout
+            ? Offset(bounds.width / 2, bounds.height / 2)
+            : _clampCaptchaPointer(_captchaPointer, bounds);
+      });
+      _captchaPointerFocusNode.requestFocus();
+    });
+  }
+
+  Future<void> _tapCaptchaPointer() async {
+    final BuildContext? areaContext = _captchaPointerAreaKey.currentContext;
+    final RenderObject? renderObject = areaContext?.findRenderObject();
+    if (areaContext == null || renderObject is! RenderBox) {
+      return;
+    }
+    final Offset global = renderObject.localToGlobal(_captchaPointer);
+    final double devicePixelRatio = MediaQuery.of(areaContext).devicePixelRatio;
+    try {
+      await _tvPointerChannel.invokeMethod<bool>(
+        'tap',
+        <String, double>{
+          'x': global.dx * devicePixelRatio,
+          'y': global.dy * devicePixelRatio,
+        },
+      );
+    } catch (_) {
+      SmartDialog.showToast('验证码点击失败，请重试');
+    } finally {
+      if (mounted && controller.captchaVisible.value) {
+        _captchaPointerFocusNode.requestFocus();
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,63 +144,115 @@ class _TvLoginPageState extends State<TvLoginPage> {
             }
           },
           child: Scaffold(
-            body: Padding(
-              padding: const EdgeInsets.fromLTRB(56, 42, 56, 42),
-              child: session.isLogin.value
-                  ? _LoggedInView(session: session)
-                  : Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        SizedBox(
-                          width: 280,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              TvFocusableButton(
-                                autofocus: true,
-                                label: blockBack ? '返回手机号' : '返回',
-                                icon: Icons.arrow_back,
-                                onPressed: controller.loginMode.value == 1
-                                    ? controller.previousSmsStepOrBack
-                                    : Get.back,
-                              ),
-                              const SizedBox(height: 42),
-                              _ModeButton(
-                                label: '扫码登录',
-                                icon: Icons.qr_code_2,
-                                selected: controller.loginMode.value == 0,
-                                onPressed: () => controller.setLoginMode(0),
-                              ),
-                              const SizedBox(height: 14),
-                              _ModeButton(
-                                label: '手机号登录',
-                                icon: Icons.pin_outlined,
-                                selected: controller.loginMode.value == 1,
-                                onPressed: () => controller.setLoginMode(1),
-                              ),
-                              const SizedBox(height: 14),
-                              _ModeButton(
-                                label: '网页登录兜底',
-                                icon: Icons.language,
-                                selected: controller.loginMode.value == 2,
-                                onPressed: () => controller.setLoginMode(2),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 52),
-                        Expanded(
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 180),
-                            child: switch (controller.loginMode.value) {
-                              0 => _QrLoginPanel(controller: controller),
-                              1 => _SmsLoginPanel(controller: controller),
-                              _ => _WebLoginPanel(controller: controller),
-                            },
-                          ),
-                        ),
-                      ],
+            body: LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints constraints) {
+                _syncCaptchaPointerBounds(
+                  Size(constraints.maxWidth, constraints.maxHeight),
+                );
+                return Stack(
+                  children: <Widget>[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(56, 42, 56, 42),
+                      child: session.isLogin.value
+                          ? _LoggedInView(session: session)
+                          : Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                SizedBox(
+                                  width: 280,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: <Widget>[
+                                      TvFocusableButton(
+                                        autofocus: true,
+                                        label: blockBack ? '返回手机号' : '返回',
+                                        icon: Icons.arrow_back,
+                                        onPressed: controller.loginMode.value ==
+                                                1
+                                            ? controller.previousSmsStepOrBack
+                                            : Get.back,
+                                      ),
+                                      const SizedBox(height: 42),
+                                      _ModeButton(
+                                        label: '扫码登录',
+                                        icon: Icons.qr_code_2,
+                                        selected:
+                                            controller.loginMode.value == 0,
+                                        onPressed: () =>
+                                            controller.setLoginMode(0),
+                                      ),
+                                      const SizedBox(height: 14),
+                                      _ModeButton(
+                                        label: '手机号登录',
+                                        icon: Icons.pin_outlined,
+                                        selected:
+                                            controller.loginMode.value == 1,
+                                        onPressed: () =>
+                                            controller.setLoginMode(1),
+                                      ),
+                                      const SizedBox(height: 14),
+                                      _ModeButton(
+                                        label: '网页登录兜底',
+                                        icon: Icons.language,
+                                        selected:
+                                            controller.loginMode.value == 2,
+                                        onPressed: () =>
+                                            controller.setLoginMode(2),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 52),
+                                Expanded(
+                                  child: AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 180),
+                                    child: switch (controller.loginMode.value) {
+                                      0 =>
+                                        _QrLoginPanel(controller: controller),
+                                      1 =>
+                                        _SmsLoginPanel(controller: controller),
+                                      _ =>
+                                        _WebLoginPanel(controller: controller),
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
                     ),
+                    if (controller.captchaVisible.value)
+                      Positioned.fill(
+                        child: Focus(
+                          focusNode: _captchaPointerFocusNode,
+                          autofocus: true,
+                          onKeyEvent: _handleCaptchaPointerKey,
+                          child: SizedBox.expand(
+                            key: _captchaPointerAreaKey,
+                            child: Stack(
+                              children: <Widget>[
+                                Positioned(
+                                  left: _captchaPointer.dx - _pointerRadius,
+                                  top: _captchaPointer.dy - _pointerRadius,
+                                  child: const IgnorePointer(
+                                    child: _CaptchaPointerCursor(),
+                                  ),
+                                ),
+                                const Positioned(
+                                  left: 24,
+                                  right: 24,
+                                  bottom: 24,
+                                  child: IgnorePointer(
+                                    child: _CaptchaPointerHint(),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
             ),
           ),
         );
@@ -122,15 +287,58 @@ class _LoggedInView extends StatelessWidget {
             style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 22),
-          TvFocusableButton(
-            label: '返回',
-            icon: Icons.check_circle_outline,
-            autofocus: true,
-            onPressed: Get.back,
+          Wrap(
+            spacing: 16,
+            runSpacing: 12,
+            alignment: WrapAlignment.center,
+            children: <Widget>[
+              TvFocusableButton(
+                label: '返回',
+                icon: Icons.check_circle_outline,
+                autofocus: true,
+                onPressed: Get.back,
+              ),
+              TvFocusableButton(
+                label: '退出登录',
+                icon: Icons.logout,
+                onPressed: () => _confirmLogout(context),
+              ),
+            ],
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _confirmLogout(BuildContext context) async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF121A2B),
+          title: const Text('退出登录'),
+          content: const Text('确认要退出当前账号吗？'),
+          actions: <Widget>[
+            TvFocusableButton(
+              autofocus: true,
+              icon: Icons.close,
+              label: '取消',
+              onPressed: () => Navigator.of(context).pop(false),
+            ),
+            TvFocusableButton(
+              icon: Icons.logout,
+              label: '退出登录',
+              onPressed: () => Navigator.of(context).pop(true),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true) {
+      return;
+    }
+    await session.clearLoginState();
+    SmartDialog.showToast('已退出登录');
   }
 }
 
@@ -164,49 +372,51 @@ class _QrLoginPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _Panel(
-      key: const ValueKey<String>('qr'),
-      title: '扫码登录',
-      subtitle: '用哔哩哔哩 App 扫码后确认登录。扫码失败时，可以切到手机号登录或网页登录兜底。',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Container(
-            width: 280,
-            height: 280,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+    return Obx(
+      () => _Panel(
+        key: const ValueKey<String>('qr'),
+        title: '扫码登录',
+        subtitle: '用哔哩哔哩 App 扫码后确认登录。扫码失败时，可以切到手机号登录或网页登录兜底。',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Container(
+              width: 280,
+              height: 280,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: controller.qrUrl.value.isEmpty
+                  ? const Center(child: CircularProgressIndicator())
+                  : QrImageView(
+                      data: controller.qrUrl.value,
+                      backgroundColor: Colors.white,
+                    ),
             ),
-            child: controller.qrUrl.value.isEmpty
-                ? const Center(child: CircularProgressIndicator())
-                : QrImageView(
-                    data: controller.qrUrl.value,
-                    backgroundColor: Colors.white,
-                  ),
-          ),
-          const SizedBox(height: 18),
-          Text('二维码剩余 ${controller.validSeconds.value}s'),
-          _ErrorText(error: controller.error.value),
-          const SizedBox(height: 22),
-          Wrap(
-            spacing: 16,
-            runSpacing: 12,
-            children: <Widget>[
-              TvFocusableButton(
-                label: '刷新二维码',
-                icon: Icons.refresh,
-                onPressed: controller.startLogin,
-              ),
-              TvFocusableButton(
-                label: '检查登录状态',
-                icon: Icons.verified_user_outlined,
-                onPressed: controller.refreshLoginStatus,
-              ),
-            ],
-          ),
-        ],
+            const SizedBox(height: 18),
+            Text('二维码剩余 ${controller.validSeconds.value}s'),
+            _ErrorText(error: controller.error.value),
+            const SizedBox(height: 22),
+            Wrap(
+              spacing: 16,
+              runSpacing: 12,
+              children: <Widget>[
+                TvFocusableButton(
+                  label: '刷新二维码',
+                  icon: Icons.refresh,
+                  onPressed: controller.startLogin,
+                ),
+                TvFocusableButton(
+                  label: '检查登录状态',
+                  icon: Icons.verified_user_outlined,
+                  onPressed: controller.refreshLoginStatus,
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -219,76 +429,99 @@ class _SmsLoginPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool phoneStep = controller.isPhoneStep;
-    return _Panel(
-      key: const ValueKey<String>('sms'),
-      title: '手机号登录',
-      subtitle:
-          phoneStep ? '用遥控器方向键选择数字，OK 输入手机号。' : '输入短信验证码。遇到滑块或风控失败时，请切到网页登录兜底。',
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                _InputPreview(
-                  label: phoneStep ? '手机号' : '验证码',
-                  value: phoneStep
-                      ? (controller.phoneInput.value.isEmpty
-                          ? '请输入手机号'
-                          : controller.maskedPhone)
-                      : controller.smsCodeDisplay,
-                  progress: phoneStep
-                      ? '${controller.phoneInput.value.length}/11'
-                      : '${controller.smsCodeInput.value.length}/6',
-                ),
-                const SizedBox(height: 18),
-                _ErrorText(error: controller.error.value),
-                const SizedBox(height: 24),
-                Wrap(
-                  spacing: 16,
-                  runSpacing: 12,
+    return Obx(
+      () {
+        final bool phoneStep = controller.isPhoneStep;
+        return _Panel(
+          key: const ValueKey<String>('sms'),
+          title: '手机号登录',
+          subtitle: phoneStep
+              ? '先输入手机号。遇到点选验证时会出现遥控器光标，方向键移动，OK 点击。'
+              : '输入短信验证码。重新获取验证码时若再弹验证，也可继续用遥控器光标点击。',
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    if (!phoneStep)
-                      TvFocusableButton(
-                        label: '返回手机号',
-                        icon: Icons.arrow_back,
-                        onPressed: controller.previousSmsStepOrBack,
-                      ),
-                    TvFocusableButton(
-                      label: phoneStep
-                          ? controller.smsSending.value
-                              ? '获取中...'
-                              : '获取验证码'
-                          : controller.smsCountdown.value > 0
-                              ? '重新获取(${controller.smsCountdown.value}s)'
-                              : controller.smsSending.value
-                                  ? '获取中...'
-                                  : '重新获取',
-                      icon: Icons.sms_outlined,
-                      onPressed: controller.requestSmsCode,
+                    _InputPreview(
+                      label: phoneStep ? '手机号' : '验证码',
+                      value: phoneStep
+                          ? (controller.phoneInput.value.isEmpty
+                              ? '请输入手机号'
+                              : controller.maskedPhone)
+                          : controller.smsCodeDisplay,
+                      progress: phoneStep
+                          ? '${controller.phoneInput.value.length}/11'
+                          : '${controller.smsCodeInput.value.length}/6',
                     ),
-                    if (!phoneStep)
-                      TvFocusableButton(
-                        label: controller.smsLoggingIn.value ? '登录中...' : '登录',
-                        icon: Icons.login,
-                        onPressed: controller.loginBySmsCode,
+                    const SizedBox(height: 18),
+                    if (controller.captchaVisible.value)
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 18),
+                        child: Text(
+                          '验证码已弹出：方向键移动光标，OK 点击要选的字。',
+                          style: TextStyle(
+                            color: Color(0xFFFFC24B),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
-                    TvFocusableButton(
-                      label: '检查状态',
-                      icon: Icons.verified_user_outlined,
-                      onPressed: controller.refreshLoginStatus,
+                    _ErrorText(error: controller.error.value),
+                    const SizedBox(height: 24),
+                    Wrap(
+                      spacing: 16,
+                      runSpacing: 12,
+                      children: <Widget>[
+                        if (!phoneStep)
+                          TvFocusableButton(
+                            label: '返回手机号',
+                            icon: Icons.arrow_back,
+                            onPressed: controller.previousSmsStepOrBack,
+                          ),
+                        TvFocusableButton(
+                          label: phoneStep
+                              ? controller.smsSending.value
+                                  ? '获取中...'
+                                  : '获取验证码'
+                              : controller.smsCountdown.value > 0
+                                  ? '重新获取(${controller.smsCountdown.value}s)'
+                                  : controller.smsSending.value
+                                      ? '获取中...'
+                                      : '重新获取',
+                          icon: Icons.sms_outlined,
+                          onPressed: controller.requestSmsCode,
+                        ),
+                        if (!phoneStep)
+                          TvFocusableButton(
+                            label:
+                                controller.smsLoggingIn.value ? '登录中...' : '登录',
+                            icon: Icons.login,
+                            onPressed: controller.loginBySmsCode,
+                          ),
+                        TvFocusableButton(
+                          label: '网页登录兜底',
+                          icon: Icons.language,
+                          onPressed: controller.openWebLogin,
+                        ),
+                        TvFocusableButton(
+                          label: '检查状态',
+                          icon: Icons.verified_user_outlined,
+                          onPressed: controller.refreshLoginStatus,
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 36),
+              _NumberPad(controller: controller),
+            ],
           ),
-          const SizedBox(width: 36),
-          _NumberPad(controller: controller),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -508,36 +741,42 @@ class _WebLoginPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _Panel(
-      key: const ValueKey<String>('web'),
-      title: '网页登录兜底',
-      subtitle: '打开和手机版一致的哔哩哔哩官方登录页，可处理密码、扫码、滑块和风控验证。',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          const Text(
-            '如果短信验证码被风控、滑块验证失败，或扫码一直不同步，就用这里。登录成功后点右上角“刷新登录状态”，或返回本页点检查状态。',
-            style: TextStyle(color: Colors.white70, fontSize: 17, height: 1.4),
-          ),
-          _ErrorText(error: controller.error.value),
-          const SizedBox(height: 26),
-          Wrap(
-            spacing: 16,
-            runSpacing: 12,
-            children: <Widget>[
-              TvFocusableButton(
-                label: '打开官方登录页',
-                icon: Icons.language,
-                onPressed: controller.openWebLogin,
+    return Obx(
+      () => _Panel(
+        key: const ValueKey<String>('web'),
+        title: '网页登录兜底',
+        subtitle: '打开和手机版一致的哔哩哔哩官方登录页，可处理密码、扫码、滑块和风控验证。',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const Text(
+              '如果短信验证码被风控、滑块验证失败，或扫码一直不同步，就用这里。登录成功后点右上角“刷新登录状态”，或返回本页点检查状态。',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 17,
+                height: 1.4,
               ),
-              TvFocusableButton(
-                label: '检查登录状态',
-                icon: Icons.verified_user_outlined,
-                onPressed: controller.refreshLoginStatus,
-              ),
-            ],
-          ),
-        ],
+            ),
+            _ErrorText(error: controller.error.value),
+            const SizedBox(height: 26),
+            Wrap(
+              spacing: 16,
+              runSpacing: 12,
+              children: <Widget>[
+                TvFocusableButton(
+                  label: '打开官方登录页',
+                  icon: Icons.language,
+                  onPressed: controller.openWebLogin,
+                ),
+                TvFocusableButton(
+                  label: '检查登录状态',
+                  icon: Icons.verified_user_outlined,
+                  onPressed: controller.refreshLoginStatus,
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -593,6 +832,63 @@ class _ErrorText extends StatelessWidget {
       child: Text(
         error!,
         style: const TextStyle(color: Colors.redAccent, fontSize: 15),
+      ),
+    );
+  }
+}
+
+class _CaptchaPointerCursor extends StatelessWidget {
+  const _CaptchaPointerCursor();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 26,
+      height: 26,
+      decoration: BoxDecoration(
+        color: const Color(0xFFFF4BA0).withOpacity(0.28),
+        shape: BoxShape.circle,
+        border: Border.all(color: const Color(0xFFFF4BA0), width: 3),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0xAAFF4BA0),
+            blurRadius: 16,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: Center(
+        child: Container(
+          width: 4,
+          height: 4,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CaptchaPointerHint extends StatelessWidget {
+  const _CaptchaPointerHint();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.72),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Text(
+          '验证码光标：方向键移动，OK 点击。若要关闭验证码，可按返回键。',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.white, fontSize: 14),
+        ),
       ),
     );
   }

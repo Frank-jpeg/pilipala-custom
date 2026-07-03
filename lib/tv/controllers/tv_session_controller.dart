@@ -46,6 +46,10 @@ class TvSessionController extends GetxController {
     isLogin.value = false;
     refreshTick.value++;
     await GStrorage.userInfo.delete('userInfoCache');
+    await GStrorage.localCache.put(
+      LocalCacheKey.accessKey,
+      <String, Object>{'mid': -1, 'value': ''},
+    );
     await Request.cookieManager.cookieJar.deleteAll();
     Request.dio.options.headers['cookie'] = '';
   }

@@ -29,6 +29,9 @@ The TV app now uses a left navigation shell, with recommendation as one real sec
 - `设置` can enable/disable idle auto-fullscreen and change the delay from 5 to 60 seconds
 - `设置` can enable TV anti-addiction controls with a local 4-digit parent PIN
 - TV anti-addiction tracks recommendation preview and full-screen playback, then locks playback for forced rest or daily limit countdowns
+- `登录` / `我的` supports `扫码登录`, `手机号登录`, and `网页登录兜底`, and the logged-in `我的` page exposes logout
+- `手机号登录` uses the on-screen 9-key number pad for phone number and SMS code, and now overlays a DPAD cursor when Geetest point-select captcha appears
+- `网页登录兜底` reuses the official Bilibili H5 login page in WebView and also provides the same DPAD cursor for remote-only devices during password/risk verification
 
 ## API sources
 
@@ -42,6 +45,8 @@ The TV MVP reuses the existing project API layer.
   - `扫码登录`: Web QR login with polling.
   - `手机号登录`: remote-friendly 9-key number pad for phone number and SMS code.
   - `网页登录兜底`: opens the same official Bilibili H5 login page used by the mobile app through WebView. Use this when QR/SMS login does not sync, or when password/risk verification is required.
+- The TV SMS path still uses the existing Web SMS + Geetest captcha flow, but the TV shell now injects a remote-controlled pointer for point-select captcha taps.
+- The `tvLogin` WebView path also injects the same remote-controlled pointer so official H5 password/risk verification remains operable from a DPAD-only device.
 
 Reference projects checked on 2026-06-29:
 
@@ -139,9 +144,11 @@ Use the latest `tv` branch artifact from GitHub Actions or the local arm64 relea
    - detail playback -> detail page
 12. Enter `登录` and test all login paths:
     - `扫码登录`: scan the TV QR code and confirm the app detects login state.
-    - `手机号登录`: use the on-screen 9-key number pad to input an 11-digit phone number, request an SMS code, input the 6-digit code, and confirm login state syncs.
-    - `网页登录兜底`: open the official WebView login page and confirm `刷新登录状态` syncs the account after login.
-13. In `手机号登录`, confirm `清空`, `0`, `删除`, `返回手机号`, countdown resend, and incomplete input validation all work with DPAD/OK.
+    - `手机号登录`: use the on-screen 9-key number pad to input an 11-digit phone number, request an SMS code, and if Geetest point-select captcha appears, confirm the DPAD cursor appears, arrow keys move it, and OK can click the requested characters.
+    - `手机号登录`: after captcha passes, input the 6-digit SMS code and confirm login state syncs.
+    - `网页登录兜底`: open the official WebView login page and confirm the DPAD cursor can click the official page controls, password/risk verification remains operable, and `刷新登录状态` syncs the account after login.
+    - `我的`: after login, enter `我的` and confirm `退出登录` clears the login state.
+13. In `手机号登录`, confirm `清空`, `0`, `删除`, `返回手机号`, countdown resend, incomplete input validation, and captcha overlay re-entry all work with DPAD/OK.
 14. Enter `搜索` and confirm both `返回` and `搜索` buttons are focusable with DPAD.
 15. Enter `媒体库` and confirm the page is usable in both logged-in and not-logged-in states.
 16. Enter `设置` and confirm idle auto-fullscreen can be toggled and its delay can be adjusted.
