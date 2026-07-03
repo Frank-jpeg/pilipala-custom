@@ -38,7 +38,10 @@ The TV MVP reuses the existing project API layer.
 - Video details use Web API: `https://api.bilibili.com/x/web-interface/view`.
 - Playback uses WBI Web API: `https://api.bilibili.com/x/player/wbi/playurl`.
 - Login QR in the TV UI currently uses the existing Web QR login flow.
-- TV login also provides an `账号登录` fallback that opens the same official Bilibili H5 login page used by the mobile app through WebView. Use this when QR login does not sync, or when password/SMS/risk verification is required.
+- TV login provides three paths:
+  - `扫码登录`: Web QR login with polling.
+  - `手机号登录`: remote-friendly 9-key number pad for phone number and SMS code.
+  - `网页登录兜底`: opens the same official Bilibili H5 login page used by the mobile app through WebView. Use this when QR/SMS login does not sync, or when password/risk verification is required.
 
 Reference projects checked on 2026-06-29:
 
@@ -134,17 +137,19 @@ Use the latest `tv` branch artifact from GitHub Actions or the local arm64 relea
 11. Press Back and confirm it returns to the correct previous page:
    - recommendation playback -> recommendation stage
    - detail playback -> detail page
-12. Enter `登录` and test both login paths:
+12. Enter `登录` and test all login paths:
     - `扫码登录`: scan the TV QR code and confirm the app detects login state.
-    - `账号登录`: open the official WebView login page and confirm `刷新登录状态` syncs the account after login.
-13. Enter `搜索` and confirm both `返回` and `搜索` buttons are focusable with DPAD.
-14. Enter `媒体库` and confirm the page is usable in both logged-in and not-logged-in states.
-15. Enter `设置` and confirm idle auto-fullscreen can be toggled and its delay can be adjusted.
-16. In `设置`, set a parent PIN, enable `TV 防沉迷`, and confirm the default values are 30 minutes watch / 20 minutes rest / daily limit off.
-17. Temporarily reduce the single-session limit during manual testing if needed, then confirm recommendation preview and full-screen playback both trigger the lock page.
-18. Confirm Back cannot bypass the anti-addiction lock page.
-19. Confirm parent PIN unlock resumes playback and daily-limit PIN unlock adds only the temporary extra watch time.
-20. Confirm real playback has video and audio.
-21. Test account-only flows after login if needed.
+    - `手机号登录`: use the on-screen 9-key number pad to input an 11-digit phone number, request an SMS code, input the 6-digit code, and confirm login state syncs.
+    - `网页登录兜底`: open the official WebView login page and confirm `刷新登录状态` syncs the account after login.
+13. In `手机号登录`, confirm `清空`, `0`, `删除`, `返回手机号`, countdown resend, and incomplete input validation all work with DPAD/OK.
+14. Enter `搜索` and confirm both `返回` and `搜索` buttons are focusable with DPAD.
+15. Enter `媒体库` and confirm the page is usable in both logged-in and not-logged-in states.
+16. Enter `设置` and confirm idle auto-fullscreen can be toggled and its delay can be adjusted.
+17. In `设置`, set a parent PIN, enable `TV 防沉迷`, and confirm the default values are 30 minutes watch / 20 minutes rest / daily limit off.
+18. Temporarily reduce the single-session limit during manual testing if needed, then confirm recommendation preview and full-screen playback both trigger the lock page.
+19. Confirm Back cannot bypass the anti-addiction lock page.
+20. Confirm parent PIN unlock resumes playback and daily-limit PIN unlock adds only the temporary extra watch time.
+21. Confirm real playback has video and audio.
+22. Test account-only flows after login if needed.
 
 If real-device playback is black, treat it as a player/play-url compatibility bug and inspect `TvPlayerController` plus the shared `PlPlayerController`/`media_kit` integration first.

@@ -76,6 +76,7 @@ class LoginHttp {
       return {
         'status': true,
         'data': res.data['data'],
+        'headers': res.headers,
       };
     } else {
       return {'status': false, 'data': [], 'msg': res.data['message']};
@@ -108,6 +109,7 @@ class LoginHttp {
       return {
         'status': true,
         'data': res.data['data'],
+        'headers': res.headers,
       };
     } else {
       return {'status': false, 'data': [], 'msg': res.data['message']};
@@ -150,7 +152,7 @@ class LoginHttp {
       Api.appSmsCode,
       data: data,
     );
-    print(res);
+    return res;
   }
 
   static String buvid() {
