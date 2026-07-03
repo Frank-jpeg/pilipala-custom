@@ -9,9 +9,14 @@ This fork now has two different Android outputs on GitHub. They are not intercha
 
 ## Current versioning rules
 
+- Every user-facing APK update must bump `pubspec.yaml` before building, for both the `mobile` and `tv` flavors. Do not hand off a newly built APK with the same version as the previous test package.
 - `pubspec.yaml` version must match the release you want to publish, for example `1.0.30+1030`.
 - GitHub Release tags must use the `v` prefix, for example `v1.0.30`.
 - Release APK asset name for this fork is `pilipala-custom-<version>-arm64-v8a.apk`.
+- Local handoff packages copied into `releases/` must include flavor, version/build number, short commit hash, and ABI:
+  - Mobile: `pilipala-custom-mobile-v<version>-<build>-<short-sha>-arm64-v8a.apk`
+  - TV: `pilipala-custom-tv-v<version>-<build>-<short-sha>-arm64-v8a.apk`
+- Do not hand off only Flutter's generic output names such as `app-arm64-v8a-mobile-release.apk` or `app-arm64-v8a-tv-release.apk`; always provide the versioned copy too.
 
 ## Local release APK
 
@@ -24,7 +29,7 @@ flutter build apk --release --flavor mobile -t lib/main.dart --target-platform a
 Expected output:
 
 - `build/app/outputs/flutter-apk/app-arm64-v8a-mobile-release.apk`
-- optional copied file: `releases/pilipala-custom-<version>-arm64-v8a.apk`
+- copied handoff file: `releases/pilipala-custom-mobile-v<version>-<build>-<short-sha>-arm64-v8a.apk`
 
 If `android/app/vvex.jks` or `android/key.properties` is missing, this project can fall back to the debug keystore for a locally installable release build.
 
@@ -69,6 +74,8 @@ The uploaded APK is renamed as:
 
 - `pilipala-custom-tv-<version>-<short-sha>-arm64-v8a.apk`
 - `pilipala-custom-tv-arm64-v8a.apk`
+
+For local handoff builds, also copy the release APK to `releases/pilipala-custom-tv-v<version>-<build>-<short-sha>-arm64-v8a.apk`.
 
 The workflow also updates the prerelease tag `tv-latest` so the project homepage can expose a stable direct-download link for the newest TV build.
 

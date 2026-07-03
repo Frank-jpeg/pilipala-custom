@@ -21,10 +21,10 @@ The TV app now uses a left navigation shell, with recommendation as one real sec
 - `推荐` section uses the immersive recommendation stage
 - selected recommendation now starts an inline homepage video preview after focus settles, with artwork fallback if preview playback fails
 - DPAD up/down switches recommendations
-- OK enters full-screen playback
+- OK enters full-screen playback and resumes from the current homepage preview position when available
 - right opens details
 - left returns focus to the left navigation
-- idle on a recommendation can auto-enter full-screen playback
+- idle on a recommendation can auto-enter full-screen playback and resumes from the current homepage preview position when available
 - from recommendation playback, DPAD up/down switches previous/next recommendation
 - `设置` can enable/disable idle auto-fullscreen and change the delay from 5 to 60 seconds
 - `设置` can enable TV anti-addiction controls with a local 4-digit parent PIN
@@ -57,6 +57,7 @@ $env:MEDIA_KIT_ANDROID_VIDEO_ARM64_JAR='C:\Users\Lan\Desktop\default-arm64-v8a.j
 Expected output:
 
 - `build/app/outputs/flutter-apk/app-arm64-v8a-tv-release.apk`
+- versioned handoff copy: `releases/pilipala-custom-tv-v<version>-<build>-<short-sha>-arm64-v8a.apk`
 
 For the Google TV emulator:
 
@@ -127,22 +128,23 @@ Use the latest `tv` branch artifact from GitHub Actions or the local arm64 relea
 5. Confirm the focused recommendation starts autoplaying on the home page after a short delay.
 6. Use DPAD up/down to switch recommendations and confirm the preview switches with the selected item.
 7. Wait for the configured idle delay and confirm it enters full-screen playback.
-8. Press OK on a recommendation and confirm full-screen playback opens.
-9. In recommendation playback, use DPAD up/down to switch videos.
-10. Press Back and confirm it returns to the correct previous page:
+8. Confirm the idle auto-fullscreen playback continues from the homepage preview position instead of restarting from 0 seconds.
+9. Press OK on a recommendation and confirm full-screen playback opens from the current homepage preview position when preview is already playing.
+10. In recommendation playback, use DPAD up/down to switch videos and confirm switched videos start from 0 seconds.
+11. Press Back and confirm it returns to the correct previous page:
    - recommendation playback -> recommendation stage
    - detail playback -> detail page
-11. Enter `登录` and test both login paths:
+12. Enter `登录` and test both login paths:
     - `扫码登录`: scan the TV QR code and confirm the app detects login state.
     - `账号登录`: open the official WebView login page and confirm `刷新登录状态` syncs the account after login.
-12. Enter `搜索` and confirm both `返回` and `搜索` buttons are focusable with DPAD.
-13. Enter `媒体库` and confirm the page is usable in both logged-in and not-logged-in states.
-14. Enter `设置` and confirm idle auto-fullscreen can be toggled and its delay can be adjusted.
-15. In `设置`, set a parent PIN, enable `TV 防沉迷`, and confirm the default values are 30 minutes watch / 20 minutes rest / daily limit off.
-16. Temporarily reduce the single-session limit during manual testing if needed, then confirm recommendation preview and full-screen playback both trigger the lock page.
-17. Confirm Back cannot bypass the anti-addiction lock page.
-18. Confirm parent PIN unlock resumes playback and daily-limit PIN unlock adds only the temporary extra watch time.
-19. Confirm real playback has video and audio.
-20. Test account-only flows after login if needed.
+13. Enter `搜索` and confirm both `返回` and `搜索` buttons are focusable with DPAD.
+14. Enter `媒体库` and confirm the page is usable in both logged-in and not-logged-in states.
+15. Enter `设置` and confirm idle auto-fullscreen can be toggled and its delay can be adjusted.
+16. In `设置`, set a parent PIN, enable `TV 防沉迷`, and confirm the default values are 30 minutes watch / 20 minutes rest / daily limit off.
+17. Temporarily reduce the single-session limit during manual testing if needed, then confirm recommendation preview and full-screen playback both trigger the lock page.
+18. Confirm Back cannot bypass the anti-addiction lock page.
+19. Confirm parent PIN unlock resumes playback and daily-limit PIN unlock adds only the temporary extra watch time.
+20. Confirm real playback has video and audio.
+21. Test account-only flows after login if needed.
 
 If real-device playback is black, treat it as a player/play-url compatibility bug and inspect `TvPlayerController` plus the shared `PlPlayerController`/`media_kit` integration first.
