@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'dart:developer';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:html/parser.dart';
 import 'package:pilipala/models/video/later.dart';
@@ -15,6 +15,7 @@ import '../models/user/sub_detail.dart';
 import '../models/user/sub_folder.dart';
 import 'api.dart';
 import 'init.dart';
+import 'login.dart';
 
 class UserHttp {
   static Future<dynamic> userStat({required int mid}) async {
@@ -34,6 +35,108 @@ class UserHttp {
     } else {
       return {'status': false, 'msg': res.data['message']};
     }
+  }
+
+  static Future<dynamic> tvUserInfoByAccessKey({
+    required String accessKey,
+  }) async {
+    if (accessKey.isEmpty) {
+      return {'status': false, 'msg': 'access_key 为空'};
+    }
+    final Map<String, dynamic> params =
+        await LoginHttp.signedTvParams(<String, dynamic>{
+      'access_key': accessKey,
+    });
+    final Response<dynamic> res = await Request.dio.get(
+      Api.tvUserInfo,
+      queryParameters: params,
+      options: Options(
+        headers: <String, dynamic>{'user-agent': LoginHttp.tvUserAgent},
+      ),
+    );
+    final dynamic body = res.data;
+    if (body is Map && body['code'] == 0 && body['data'] is Map) {
+      return {
+        'status': true,
+        'data': _tvAccountToUserInfo(
+          Map<String, dynamic>.from(body['data'] as Map),
+        ),
+      };
+    }
+    return {
+      'status': false,
+      'msg': body is Map
+          ? body['message']?.toString() ?? 'TV 登录状态无效'
+          : 'TV 登录状态无效',
+      'code': body is Map ? body['code'] : res.statusCode,
+    };
+  }
+
+  static UserInfoData _tvAccountToUserInfo(Map<String, dynamic> data) {
+    final Map<String, dynamic> vip = data['vip'] is Map
+        ? Map<String, dynamic>.from(data['vip'] as Map)
+        : <String, dynamic>{};
+    final Map<String, dynamic> levelInfo = data['level_info'] is Map
+        ? Map<String, dynamic>.from(data['level_info'] as Map)
+        : <String, dynamic>{
+            'current_level': _toInt(data['level']),
+            'current_min': 0,
+            'current_exp': 0,
+            'next_exp': 0,
+          };
+    final int mid = _toInt(data['mid']);
+    return UserInfoData.fromJson(<String, dynamic>{
+      'isLogin': data['is_login'] ?? mid > 0,
+      'email_verified': _toInt(data['email_status']),
+      'face': data['face']?.toString() ?? '',
+      'level_info': levelInfo,
+      'mid': mid,
+      'mobile_verified': _toInt(data['tel_status']),
+      'money': _toDouble(data['coins']),
+      'moral': 0,
+      'official': data['official'] ?? <String, dynamic>{},
+      'officialVerify': data['official'] ?? <String, dynamic>{},
+      'pendant': data['pendant'] ?? <String, dynamic>{},
+      'scores': 0,
+      'uname': data['name']?.toString() ??
+          data['uname']?.toString() ??
+          data['guest_name']?.toString() ??
+          '',
+      'vipDueDate': _toInt(vip['due_date'] ?? vip['vip_due_date']),
+      'vipStatus': _toInt(vip['status'] ?? vip['vip_status']),
+      'vipType': _toInt(vip['type'] ?? vip['vip_type']),
+      'vip_pay_type': _toInt(vip['pay_type'] ?? vip['vip_pay_type']),
+      'vip_theme_type': _toInt(vip['theme_type'] ?? vip['vip_theme_type']),
+      'vip_label': vip['label'] ?? vip['vip_label'] ?? <String, dynamic>{},
+      'vip_avatar_subscript': _toInt(
+        vip['avatar_subscript'] ?? vip['vip_avatar_subscript'],
+      ),
+      'vip_nickname_color':
+          vip['nickname_color']?.toString() ?? vip['vip_nickname_color'],
+      'wallet': data['wallet'] ?? <String, dynamic>{},
+      'has_shop': false,
+      'shop_url': '',
+    });
+  }
+
+  static int _toInt(dynamic value) {
+    if (value is int) {
+      return value;
+    }
+    if (value is num) {
+      return value.toInt();
+    }
+    return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  static double _toDouble(dynamic value) {
+    if (value is double) {
+      return value;
+    }
+    if (value is num) {
+      return value.toDouble();
+    }
+    return double.tryParse(value?.toString() ?? '') ?? 0;
   }
 
   static Future<dynamic> userStatOwner() async {

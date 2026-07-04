@@ -35,7 +35,7 @@ class TvLoginController extends GetxController {
   bool _polling = false;
 
   void setLoginMode(int mode) {
-    loginMode.value = mode.clamp(0, 2);
+    loginMode.value = mode.clamp(0, 3);
     if (loginMode.value != 0) {
       pollTimer?.cancel();
     } else if (qrUrl.value.isEmpty) {
@@ -75,6 +75,8 @@ class TvLoginController extends GetxController {
   }
 
   bool get isPhoneStep => smsStep.value == 0;
+
+  bool get isNativeSmsMode => loginMode.value == 1;
 
   String get maskedPhone {
     final String phone = phoneInput.value;
@@ -141,6 +143,10 @@ class TvLoginController extends GetxController {
   }
 
   Future<void> requestSmsCode() async {
+    if (isNativeSmsMode) {
+      await _requestTvSmsCode();
+      return;
+    }
     if (phoneInput.value.length != 11) {
       error.value = '请输入 11 位手机号';
       return;
@@ -181,6 +187,10 @@ class TvLoginController extends GetxController {
   }
 
   Future<void> loginBySmsCode() async {
+    if (isNativeSmsMode) {
+      await _loginByTvSmsCode();
+      return;
+    }
     if (phoneInput.value.length != 11) {
       smsStep.value = 0;
       error.value = '请输入 11 位手机号';
@@ -223,6 +233,97 @@ class TvLoginController extends GetxController {
       }
     } catch (e) {
       error.value = '验证码登录失败: $e';
+    } finally {
+      smsLoggingIn.value = false;
+    }
+  }
+
+  Future<void> _requestTvSmsCode() async {
+    if (phoneInput.value.length != 11) {
+      error.value = '请输入 11 位手机号';
+      return;
+    }
+    if (smsCountdown.value > 0 || smsSending.value) {
+      return;
+    }
+    smsSending.value = true;
+    error.value = null;
+    try {
+      final dynamic res = await LoginHttp.sendTvSmsCode(
+        tel: phoneInput.value,
+      );
+      if (res['status'] == true) {
+        final dynamic data = res['data'];
+        captchaKey = data is Map ? data['captcha_key']?.toString() : null;
+        smsStep.value = 1;
+        smsCodeInput.value = '';
+        _startSmsCountdown();
+        SmartDialog.showToast('验证码已发送');
+      } else {
+        error.value = res['msg']?.toString() ?? 'TV 验证码发送失败，可切到网页登录手机号';
+      }
+    } catch (e) {
+      error.value = 'TV 验证码发送失败: $e';
+    } finally {
+      smsSending.value = false;
+    }
+  }
+
+  Future<void> _loginByTvSmsCode() async {
+    if (phoneInput.value.length != 11) {
+      smsStep.value = 0;
+      error.value = '请输入 11 位手机号';
+      return;
+    }
+    if (smsCodeInput.value.length != 6) {
+      error.value = '请输入 6 位短信验证码';
+      return;
+    }
+    final String? key = captchaKey;
+    if (key == null || key.isEmpty) {
+      error.value = '请先获取验证码';
+      return;
+    }
+    smsLoggingIn.value = true;
+    error.value = null;
+    try {
+      final dynamic res = await LoginHttp.loginInByTvSmsCode(
+        tel: phoneInput.value,
+        code: smsCodeInput.value,
+        captchaKey: key,
+      );
+      if (res['status'] == true && res['data'] is Map) {
+        final Map<dynamic, dynamic> data = res['data'] as Map<dynamic, dynamic>;
+        final String accessKey = data['access_token']?.toString() ??
+            data['access_key']?.toString() ??
+            '';
+        if (accessKey.isEmpty) {
+          error.value = 'TV 登录成功但没有返回 access_key';
+          return;
+        }
+        final bool success =
+            await Get.find<TvSessionController>().syncUserFromAccessKey(
+          accessKey: accessKey,
+          silent: true,
+          clearOnFailure: false,
+          tokenInfo: <String, Object?>{
+            'mid': _parseInt(data['mid']),
+            'refresh_token': data['refresh_token']?.toString() ?? '',
+            'expires': _parseInt(data['expires']),
+            'expires_in': _parseInt(data['expires_in']),
+          },
+        );
+        if (success) {
+          SmartDialog.showToast('登录成功');
+          Get.back();
+        } else {
+          error.value = 'TV 登录已返回凭证，但账号信息同步失败';
+        }
+      } else {
+        error.value = res['msg']?.toString() ?? 'TV 验证码登录失败，可切到网页登录手机号';
+      }
+    } catch (e) {
+      error.value = 'TV 验证码登录失败: $e';
     } finally {
       smsLoggingIn.value = false;
     }
@@ -417,6 +518,16 @@ class TvLoginController extends GetxController {
     Request.dio.options.headers['cookie'] = cookies
         .map((Cookie cookie) => '${cookie.name}=${cookie.value}')
         .join('; ');
+  }
+
+  int _parseInt(dynamic value) {
+    if (value is int) {
+      return value;
+    }
+    if (value is num) {
+      return value.toInt();
+    }
+    return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 
   @override

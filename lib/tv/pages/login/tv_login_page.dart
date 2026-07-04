@@ -134,8 +134,9 @@ class _TvLoginPageState extends State<TvLoginPage> {
     final TvSessionController session = Get.find<TvSessionController>();
     return Obx(
       () {
-        final bool blockBack =
-            controller.loginMode.value == 1 && !controller.isPhoneStep;
+        final bool blockBack = (controller.loginMode.value == 1 ||
+                controller.loginMode.value == 2) &&
+            !controller.isPhoneStep;
         return PopScope(
           canPop: !blockBack,
           onPopInvoked: (bool didPop) {
@@ -168,8 +169,10 @@ class _TvLoginPageState extends State<TvLoginPage> {
                                         autofocus: true,
                                         label: blockBack ? '返回手机号' : '返回',
                                         icon: Icons.arrow_back,
-                                        onPressed: controller.loginMode.value ==
-                                                1
+                                        onPressed: (controller
+                                                        .loginMode.value ==
+                                                    1 ||
+                                                controller.loginMode.value == 2)
                                             ? controller.previousSmsStepOrBack
                                             : Get.back,
                                       ),
@@ -184,8 +187,8 @@ class _TvLoginPageState extends State<TvLoginPage> {
                                       ),
                                       const SizedBox(height: 14),
                                       _ModeButton(
-                                        label: '手机号登录',
-                                        icon: Icons.pin_outlined,
+                                        label: 'TV原生手机号',
+                                        icon: Icons.phone_android,
                                         selected:
                                             controller.loginMode.value == 1,
                                         onPressed: () =>
@@ -193,12 +196,21 @@ class _TvLoginPageState extends State<TvLoginPage> {
                                       ),
                                       const SizedBox(height: 14),
                                       _ModeButton(
-                                        label: '网页登录兜底',
-                                        icon: Icons.language,
+                                        label: '网页登录手机号',
+                                        icon: Icons.pin_outlined,
                                         selected:
                                             controller.loginMode.value == 2,
                                         onPressed: () =>
                                             controller.setLoginMode(2),
+                                      ),
+                                      const SizedBox(height: 14),
+                                      _ModeButton(
+                                        label: '网页登录兜底',
+                                        icon: Icons.language,
+                                        selected:
+                                            controller.loginMode.value == 3,
+                                        onPressed: () =>
+                                            controller.setLoginMode(3),
                                       ),
                                     ],
                                   ),
@@ -210,8 +222,14 @@ class _TvLoginPageState extends State<TvLoginPage> {
                                     child: switch (controller.loginMode.value) {
                                       0 =>
                                         _QrLoginPanel(controller: controller),
-                                      1 =>
-                                        _SmsLoginPanel(controller: controller),
+                                      1 => _SmsLoginPanel(
+                                          controller: controller,
+                                          nativeMode: true,
+                                        ),
+                                      2 => _SmsLoginPanel(
+                                          controller: controller,
+                                          nativeMode: false,
+                                        ),
                                       _ =>
                                         _WebLoginPanel(controller: controller),
                                     },
@@ -423,9 +441,13 @@ class _QrLoginPanel extends StatelessWidget {
 }
 
 class _SmsLoginPanel extends StatelessWidget {
-  const _SmsLoginPanel({required this.controller});
+  const _SmsLoginPanel({
+    required this.controller,
+    required this.nativeMode,
+  });
 
   final TvLoginController controller;
+  final bool nativeMode;
 
   @override
   Widget build(BuildContext context) {
@@ -433,11 +455,13 @@ class _SmsLoginPanel extends StatelessWidget {
       () {
         final bool phoneStep = controller.isPhoneStep;
         return _Panel(
-          key: const ValueKey<String>('sms'),
-          title: '手机号登录',
-          subtitle: phoneStep
-              ? '先输入手机号。遇到点选验证时会出现遥控器光标，方向键移动，OK 点击。'
-              : '输入短信验证码。重新获取验证码时若再弹验证，也可继续用遥控器光标点击。',
+          key: ValueKey<String>(nativeMode ? 'tvSms' : 'webSms'),
+          title: nativeMode ? 'TV原生手机号登录' : '网页登录手机号',
+          subtitle: nativeMode
+              ? (phoneStep ? '输入手机号后直接获取短信验证码。' : '输入短信验证码完成 TV 原生登录。')
+              : (phoneStep
+                  ? '先输入手机号。遇到点选验证时会出现遥控器光标，方向键移动，OK 点击。'
+                  : '输入短信验证码。重新获取验证码时若再弹验证，也可继续用遥控器光标点击。'),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
@@ -457,7 +481,7 @@ class _SmsLoginPanel extends StatelessWidget {
                           : '${controller.smsCodeInput.value.length}/6',
                     ),
                     const SizedBox(height: 18),
-                    if (controller.captchaVisible.value)
+                    if (!nativeMode && controller.captchaVisible.value)
                       const Padding(
                         padding: EdgeInsets.only(bottom: 18),
                         child: Text(
@@ -501,6 +525,14 @@ class _SmsLoginPanel extends StatelessWidget {
                             icon: Icons.login,
                             onPressed: controller.loginBySmsCode,
                           ),
+                        TvFocusableButton(
+                          label: nativeMode ? '网页登录手机号' : 'TV原生手机号',
+                          icon: nativeMode
+                              ? Icons.pin_outlined
+                              : Icons.phone_android,
+                          onPressed: () =>
+                              controller.setLoginMode(nativeMode ? 2 : 1),
+                        ),
                         TvFocusableButton(
                           label: '网页登录兜底',
                           icon: Icons.language,

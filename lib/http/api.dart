@@ -122,6 +122,8 @@ class Api {
 
   // 获取用户信息
   static const String userInfo = '/x/web-interface/nav';
+  static const String tvUserInfo =
+      '${HttpString.apiBaseUrl}/x/tv/account/myinfo';
 
   // 获取当前用户状态
   static const String userStatOwner = '/x/web-interface/nav/stat';
@@ -453,6 +455,17 @@ class Api {
   ///扫码登录（TV端）
   static const qrcodePoll =
       '${HttpString.passBaseUrl}/x/passport-tv-login/qrcode/poll';
+
+  /// TV 原生登录密钥
+  static const tvLoginKey = '${HttpString.passBaseUrl}/x/passport-tv-login/key';
+
+  /// TV 原生短信验证码
+  static const tvSmsCode =
+      '${HttpString.passBaseUrl}/x/passport-tv-login/sms/send';
+
+  /// TV 原生短信验证码登录
+  static const tvSmsLogin =
+      '${HttpString.passBaseUrl}/x/passport-tv-login/login/sms';
 
   /// 置顶视频
   static const getTopVideoApi = '/x/space/top/arc';

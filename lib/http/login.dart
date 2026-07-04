@@ -1,15 +1,27 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:crypto/crypto.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:encrypt/encrypt.dart';
+import 'package:pilipala/common/constants.dart';
 import 'package:pilipala/http/constants.dart';
 import 'package:uuid/uuid.dart';
 import '../models/login/index.dart';
 import '../utils/login.dart';
+import '../utils/utils.dart';
 import 'index.dart';
 
 class LoginHttp {
+  static const int _tvBuild = 108700;
+  static const String _tvMobiApp = 'android_tv_yst';
+  static const String _tvChannel = 'master';
+  static const String _tvUserAgent = 'Mozilla/5.0 BiliTV/1.8.7';
+  static String? _tvBuvid;
+  static String? _tvDeviceId;
+
+  static String get tvUserAgent => _tvUserAgent;
+
   static Future queryCaptcha() async {
     var res = await Request().get(Api.getCaptcha);
     if (res.data['code'] == 0) {
@@ -114,6 +126,223 @@ class LoginHttp {
     } else {
       return {'status': false, 'data': [], 'msg': res.data['message']};
     }
+  }
+
+  static Future sendTvSmsCode({
+    required String tel,
+  }) async {
+    try {
+      final Map<String, dynamic>? authKey = await _getTvLoginKey();
+      if (authKey == null) {
+        return {'status': false, 'data': [], 'msg': '获取 TV 登录密钥失败'};
+      }
+      final String telEncrypted = _encryptWithTvAuthKey(tel, authKey);
+      if (telEncrypted.isEmpty) {
+        return {'status': false, 'data': [], 'msg': '手机号加密失败'};
+      }
+      final Map<String, dynamic> data = await signedTvParams(<String, dynamic>{
+        'cid': '86',
+        'tel_encrypt': telEncrypted,
+        'code': '',
+        'token': await _tvDeviceId16(),
+        'login_session_id': _tvLoginSessionId(),
+        'spm_id': '',
+        'extend': '',
+        'device_tourist_id': '',
+      });
+      final Response<dynamic> res = await Request.dio.post(
+        Api.tvSmsCode,
+        data: data,
+        options: _tvFormOptions(),
+      );
+      return _tvResponse(res);
+    } catch (e) {
+      return {'status': false, 'data': [], 'msg': 'TV 验证码发送失败: $e'};
+    }
+  }
+
+  static Future loginInByTvSmsCode({
+    required String tel,
+    required String code,
+    required String captchaKey,
+  }) async {
+    try {
+      final Map<String, dynamic>? authKey = await _getTvLoginKey();
+      if (authKey == null) {
+        return {'status': false, 'data': [], 'msg': '获取 TV 登录密钥失败'};
+      }
+      final String telEncrypted = _encryptWithTvAuthKey(tel, authKey);
+      if (telEncrypted.isEmpty) {
+        return {'status': false, 'data': [], 'msg': '手机号加密失败'};
+      }
+      final Map<String, dynamic> data = await signedTvParams(<String, dynamic>{
+        'cid': '86',
+        'tel_encrypt': telEncrypted,
+        'code': code,
+        'captcha_key': captchaKey,
+        'login_session_id': _tvLoginSessionId(),
+        'spm_id': '',
+        'extend': '',
+        'device_tourist_id': '',
+      });
+      final Response<dynamic> res = await Request.dio.post(
+        Api.tvSmsLogin,
+        data: data,
+        options: _tvFormOptions(),
+      );
+      return _tvResponse(res);
+    } catch (e) {
+      return {'status': false, 'data': [], 'msg': 'TV 验证码登录失败: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>?> _getTvLoginKey() async {
+    final Map<String, dynamic> params = await signedTvParams();
+    final Response<dynamic> res = await Request.dio.get(
+      Api.tvLoginKey,
+      queryParameters: params,
+      options: Options(headers: <String, dynamic>{'user-agent': _tvUserAgent}),
+    );
+    final dynamic body = res.data;
+    if (body is Map && body['code'] == 0 && body['data'] is Map) {
+      return Map<String, dynamic>.from(body['data'] as Map);
+    }
+    return null;
+  }
+
+  static String _encryptWithTvAuthKey(
+    String raw,
+    Map<String, dynamic> authKey,
+  ) {
+    final String key = authKey['key']?.toString() ?? '';
+    final String hash = authKey['hash']?.toString() ?? '';
+    if (key.isEmpty || hash.isEmpty) {
+      return '';
+    }
+    final dynamic publicKey = RSAKeyParser().parse(key);
+    return Encrypter(RSA(publicKey: publicKey)).encrypt(hash + raw).base64;
+  }
+
+  static Future<Map<String, dynamic>> signedTvParams([
+    Map<String, dynamic>? params,
+  ]) async {
+    final Map<String, dynamic> signed = <String, dynamic>{
+      ...await tvCommonParams(),
+      ...?params,
+    }..removeWhere((String key, dynamic value) => value == null);
+    final String sign = Utils.appSign(
+      signed,
+      Constants.appKey,
+      Constants.appSec,
+    );
+    signed['sign'] = sign;
+    return signed;
+  }
+
+  static Future<Map<String, dynamic>> tvCommonParams() async {
+    AndroidDeviceInfo? info;
+    try {
+      info = await DeviceInfoPlugin().androidInfo;
+    } catch (_) {}
+    final String brand = _notEmpty(info?.brand, 'Android');
+    final String model = _notEmpty(info?.model, 'TV');
+    final String device = _notEmpty(info?.device, model);
+    final String manufacturer = _notEmpty(info?.manufacturer, brand);
+    final String release = _notEmpty(info?.version.release, '');
+    final String sdkInt = (info?.version.sdkInt ?? 0).toString();
+    final String buvid = await _getTvBuvid();
+    final String deviceId = _getTvDeviceId();
+    final String fingerprint =
+        md5.convert(utf8.encode('$deviceId-$brand-$model')).toString();
+    return <String, dynamic>{
+      'platform': 'android',
+      'mobi_app': _tvMobiApp,
+      'appkey': Constants.appKey,
+      'build': _tvBuild.toString(),
+      'channel': _tvChannel,
+      'sys_ver': sdkInt,
+      'brand': brand,
+      'model': model,
+      'uid': '0',
+      'tv_brand': _tvChannel,
+      'memory': '0',
+      'mode_switch': 'true',
+      'statistics': '{"appId":"18","platform":"3","version":"$_tvBuild"}',
+      'teenager_mode': '3',
+      'build_sn': _tvBuild.toString(),
+      'child_lock': '0',
+      'top_speed': '0',
+      'product_top_speed': '0',
+      'device': brand,
+      'device_id': deviceId,
+      'bili_local_id': deviceId,
+      'device_name': device,
+      'device_platform': 'Android$release$manufacturer$model',
+      'networkstate': 'wifi',
+      'buvid': buvid,
+      'guid': buvid,
+      'local_id': buvid,
+      'local_fingerprint': fingerprint,
+      'fingerprint': fingerprint,
+    };
+  }
+
+  static String _notEmpty(String? value, String fallback) {
+    if (value == null || value.isEmpty) {
+      return fallback;
+    }
+    return value;
+  }
+
+  static String _tvLoginSessionId() => const Uuid().v4().replaceAll('-', '');
+
+  static Future<String> _getTvBuvid() async {
+    if (_tvBuvid != null && _tvBuvid!.isNotEmpty) {
+      return _tvBuvid!;
+    }
+    try {
+      _tvBuvid = await Request.getBuvid();
+    } catch (_) {}
+    if (_tvBuvid == null || _tvBuvid!.isEmpty) {
+      _tvBuvid = LoginUtils.generateBuvid();
+    }
+    return _tvBuvid!;
+  }
+
+  static String _getTvDeviceId() {
+    _tvDeviceId ??= LoginUtils.generateBuvid();
+    return _tvDeviceId!;
+  }
+
+  static Future<String> _tvDeviceId16() async {
+    final String raw = _getTvDeviceId();
+    return raw.length <= 16 ? raw : raw.substring(0, 16);
+  }
+
+  static Options _tvFormOptions() {
+    return Options(
+      contentType: Headers.formUrlEncodedContentType,
+      headers: <String, dynamic>{'user-agent': _tvUserAgent},
+    );
+  }
+
+  static Map<String, dynamic> _tvResponse(Response<dynamic> res) {
+    final dynamic body = res.data;
+    if (body is Map && body['code'] == 0) {
+      return {
+        'status': true,
+        'data': body['data'] ?? <String, dynamic>{},
+        'headers': res.headers,
+      };
+    }
+    return {
+      'status': false,
+      'data': body is Map ? body['data'] ?? <dynamic>[] : <dynamic>[],
+      'msg': body is Map
+          ? body['message']?.toString() ?? '请求失败'
+          : '请求失败: ${body ?? res.statusCode}',
+      'code': body is Map ? body['code'] : res.statusCode,
+    };
   }
 
   // web端密码登录

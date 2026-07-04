@@ -26,6 +26,14 @@ class TvSessionController extends GetxController {
         await applyLoginUser(result['data'] as UserInfoData);
         return true;
       }
+      final String accessKey = _cachedAccessKey();
+      if (accessKey.isNotEmpty) {
+        return syncUserFromAccessKey(
+          accessKey: accessKey,
+          silent: silent,
+          clearOnFailure: clearOnFailure,
+        );
+      }
       if (clearOnFailure) {
         await clearLoginState();
       }
@@ -34,8 +42,53 @@ class TvSessionController extends GetxController {
       }
       return false;
     } catch (error) {
+      final String accessKey = _cachedAccessKey();
+      if (accessKey.isNotEmpty) {
+        return syncUserFromAccessKey(
+          accessKey: accessKey,
+          silent: silent,
+          clearOnFailure: clearOnFailure,
+        );
+      }
       if (!silent) {
         SmartDialog.showToast('同步登录失败: $error');
+      }
+      return false;
+    }
+  }
+
+  Future<bool> syncUserFromAccessKey({
+    required String accessKey,
+    bool silent = false,
+    bool clearOnFailure = true,
+    Map<String, Object?> tokenInfo = const <String, Object?>{},
+  }) async {
+    try {
+      final dynamic result =
+          await UserHttp.tvUserInfoByAccessKey(accessKey: accessKey);
+      if (result['status'] == true && result['data']?.isLogin == true) {
+        final UserInfoData user = result['data'] as UserInfoData;
+        await GStrorage.localCache.put(
+          LocalCacheKey.accessKey,
+          <String, Object?>{
+            ...tokenInfo,
+            'mid': user.mid ?? tokenInfo['mid'] ?? -1,
+            'value': accessKey,
+          },
+        );
+        await applyLoginUser(user);
+        return true;
+      }
+      if (clearOnFailure) {
+        await clearLoginState();
+      }
+      if (!silent) {
+        SmartDialog.showToast(result['msg']?.toString() ?? 'TV 登录状态无效');
+      }
+      return false;
+    } catch (error) {
+      if (!silent) {
+        SmartDialog.showToast('同步 TV 登录失败: $error');
       }
       return false;
     }
@@ -63,5 +116,16 @@ class TvSessionController extends GetxController {
     userInfo.value = user;
     isLogin.value = true;
     refreshTick.value++;
+  }
+
+  String _cachedAccessKey() {
+    final dynamic accessKeyInfo = GStrorage.localCache.get(
+      LocalCacheKey.accessKey,
+      defaultValue: const <String, Object>{},
+    );
+    if (accessKeyInfo is Map) {
+      return accessKeyInfo['value']?.toString() ?? '';
+    }
+    return '';
   }
 }
