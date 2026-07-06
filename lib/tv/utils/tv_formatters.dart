@@ -1,5 +1,6 @@
 String tvFormatDuration(int seconds) {
-  if (seconds <= 0) {
+  // 仅把负数当作“未知时长”占位；0 是合法的播放位置/时长，应显示 00:00。
+  if (seconds < 0) {
     return '--:--';
   }
   final Duration duration = Duration(seconds: seconds);

@@ -17,6 +17,9 @@ class TvSettingsController extends GetxController {
   static const List<int> restOptions = <int>[5, 10, 20, 30];
   static const List<int> dailyOptions = <int>[0, 60, 90, 120, 180];
 
+  // 进设置页后防沉迷相关改动只验一次家长 PIN；控制器随路由销毁，下次进入自动重置。
+  bool _pinVerifiedForEdit = false;
+
   void load() {
     antiAddiction = Get.find<TvAntiAddictionController>();
     antiAddiction.load();
@@ -121,43 +124,62 @@ class TvSettingsController extends GetxController {
     return true;
   }
 
-  Future<void> cycleSessionLimit(BuildContext context) async {
+  Future<void> selectSessionLimit(BuildContext context) async {
     if (!await _verifyPinIfNeeded(context)) {
       return;
     }
-    await antiAddiction.setSessionLimitMinutes(
-      _nextValue(sessionOptions, antiAddiction.sessionLimitMinutes.value),
+    final int? value = await showTvOptionDialog(
+      context: context,
+      title: '单次观看时长',
+      options: sessionOptions,
+      current: antiAddiction.sessionLimitMinutes.value,
+      labelBuilder: (int v) => '$v 分钟',
     );
+    if (value == null) {
+      return;
+    }
+    await antiAddiction.setSessionLimitMinutes(value);
   }
 
-  Future<void> cycleRestMinutes(BuildContext context) async {
+  Future<void> selectRestMinutes(BuildContext context) async {
     if (!await _verifyPinIfNeeded(context)) {
       return;
     }
-    await antiAddiction.setRestMinutes(
-      _nextValue(restOptions, antiAddiction.restMinutes.value),
+    final int? value = await showTvOptionDialog(
+      context: context,
+      title: '强制休息时长',
+      options: restOptions,
+      current: antiAddiction.restMinutes.value,
+      labelBuilder: (int v) => '$v 分钟',
     );
+    if (value == null) {
+      return;
+    }
+    await antiAddiction.setRestMinutes(value);
   }
 
-  Future<void> cycleDailyLimit(BuildContext context) async {
+  Future<void> selectDailyLimit(BuildContext context) async {
     if (!await _verifyPinIfNeeded(context)) {
       return;
     }
-    await antiAddiction.setDailyLimitMinutes(
-      _nextValue(dailyOptions, antiAddiction.dailyLimitMinutes.value),
+    final int? value = await showTvOptionDialog(
+      context: context,
+      title: '每日总时长',
+      options: dailyOptions,
+      current: antiAddiction.dailyLimitMinutes.value,
+      labelBuilder: (int v) => v == 0 ? '关闭' : '$v 分钟',
     );
-  }
-
-  int _nextValue(List<int> options, int current) {
-    final int index = options.indexOf(current);
-    if (index < 0 || index == options.length - 1) {
-      return options.first;
+    if (value == null) {
+      return;
     }
-    return options[index + 1];
+    await antiAddiction.setDailyLimitMinutes(value);
   }
 
   Future<bool> _verifyPinIfNeeded(BuildContext context) async {
     if (!antiAddiction.enabled.value || !antiAddiction.hasPin) {
+      return true;
+    }
+    if (_pinVerifiedForEdit) {
       return true;
     }
     final String? pin = await showTvPinDialog(
@@ -172,6 +194,7 @@ class TvSettingsController extends GetxController {
       Get.snackbar('PIN 错误', '请重新输入 4 位家长 PIN');
       return false;
     }
+    _pinVerifiedForEdit = true;
     return true;
   }
 

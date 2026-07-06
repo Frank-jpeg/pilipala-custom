@@ -5,8 +5,13 @@ import 'package:get/get.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:pilipala/http/constants.dart';
+import 'package:pilipala/http/user.dart';
 import 'package:pilipala/http/video.dart';
 import 'package:pilipala/models/home/rcmd/result.dart';
+import 'package:pilipala/models/model_hot_video_item.dart';
+import 'package:pilipala/models/user/fav_detail.dart';
+import 'package:pilipala/models/user/fav_folder.dart';
+import 'package:pilipala/models/user/history.dart';
 import 'package:pilipala/models/video/play/quality.dart';
 import 'package:pilipala/models/video/play/url.dart';
 import 'package:pilipala/tv/controllers/tv_anti_addiction_controller.dart';
@@ -16,11 +21,29 @@ import 'package:pilipala/tv/tv_routes.dart';
 import 'package:pilipala/tv/utils/tv_video_mapper.dart';
 import 'package:pilipala/utils/storage.dart';
 
+enum TvHomeTab { recommend, history, favorite, watchLater }
+
 class TvHomeController extends GetxController {
-  final RxList<RecVideoItemAppModel> items = <RecVideoItemAppModel>[].obs;
-  final RxBool loading = false.obs;
-  final RxnString error = RxnString();
+  final Rx<TvHomeTab> currentTab = TvHomeTab.recommend.obs;
   final RxInt selectedIndex = 0.obs;
+
+  final RxList<RecVideoItemAppModel> items = <RecVideoItemAppModel>[].obs;
+  final RxBool recommendLoading = false.obs;
+  final RxnString recommendError = RxnString();
+
+  final RxList<TvVideoCardData> historyVideos = <TvVideoCardData>[].obs;
+  final RxBool historyLoading = false.obs;
+  final RxnString historyError = RxnString();
+
+  final RxList<TvVideoCardData> favoriteVideos = <TvVideoCardData>[].obs;
+  final RxBool favoriteLoading = false.obs;
+  final RxnString favoriteError = RxnString();
+  final RxnString favoriteFolderTitle = RxnString();
+
+  final RxList<TvVideoCardData> watchLaterVideos = <TvVideoCardData>[].obs;
+  final RxBool watchLaterLoading = false.obs;
+  final RxnString watchLaterError = RxnString();
+
   final RxBool autoFullscreenArmed = false.obs;
   final RxBool previewPreparing = false.obs;
   final RxBool previewReady = false.obs;
@@ -31,16 +54,29 @@ class TvHomeController extends GetxController {
   Timer? _previewTimer;
   Player? _previewPlayer;
   VideoController? _previewVideoController;
+  Worker? _loginWorker;
   int _fullscreenGeneration = 0;
   int _previewGeneration = 0;
   bool _recommendStageActive = true;
+  bool _historyLoaded = false;
+  bool _favoriteLoaded = false;
+  bool _watchLaterLoaded = false;
 
   VideoController? get previewVideoController => _previewVideoController;
   TvAntiAddictionController get _antiAddiction =>
       Get.find<TvAntiAddictionController>();
+  TvSessionController get _session => Get.find<TvSessionController>();
+
+  RxBool get loading => recommendLoading;
+  RxnString get error => recommendError;
+  bool get isLogin => _session.isLogin.value;
+  bool get isRecommendTab => currentTab.value == TvHomeTab.recommend;
 
   bool get _canAutoActOnRecommend =>
-      !isClosed && _recommendStageActive && items.isNotEmpty;
+      !isClosed &&
+      _recommendStageActive &&
+      isRecommendTab &&
+      recommendVideos.isNotEmpty;
 
   bool get autoFullscreenEnabled => GStrorage.setting
       .get(SettingBoxKey.tvAutoFullscreenEnable, defaultValue: true) as bool;
@@ -51,108 +87,244 @@ class TvHomeController extends GetxController {
     return value.clamp(5, 60);
   }
 
-  List<TvVideoCardData> get videos =>
+  List<TvVideoCardData> get videos => recommendVideos;
+
+  List<TvVideoCardData> get recommendVideos =>
       items.map(TvVideoMapper.fromRcmd).toList(growable: false);
 
+  List<TvVideoCardData> get currentVideos {
+    switch (currentTab.value) {
+      case TvHomeTab.recommend:
+        return recommendVideos;
+      case TvHomeTab.history:
+        return historyVideos;
+      case TvHomeTab.favorite:
+        return favoriteVideos;
+      case TvHomeTab.watchLater:
+        return watchLaterVideos;
+    }
+  }
+
+  bool get currentLoading {
+    switch (currentTab.value) {
+      case TvHomeTab.recommend:
+        return recommendLoading.value;
+      case TvHomeTab.history:
+        return historyLoading.value;
+      case TvHomeTab.favorite:
+        return favoriteLoading.value;
+      case TvHomeTab.watchLater:
+        return watchLaterLoading.value;
+    }
+  }
+
+  String? get currentError {
+    switch (currentTab.value) {
+      case TvHomeTab.recommend:
+        return recommendError.value;
+      case TvHomeTab.history:
+        return historyError.value;
+      case TvHomeTab.favorite:
+        return favoriteError.value;
+      case TvHomeTab.watchLater:
+        return watchLaterError.value;
+    }
+  }
+
+  String get currentTabLabel {
+    switch (currentTab.value) {
+      case TvHomeTab.recommend:
+        return '推荐';
+      case TvHomeTab.history:
+        return '历史';
+      case TvHomeTab.favorite:
+        return '收藏';
+      case TvHomeTab.watchLater:
+        return '稍后再看';
+    }
+  }
+
+  String get currentEmptyText {
+    switch (currentTab.value) {
+      case TvHomeTab.recommend:
+        return '暂无推荐内容';
+      case TvHomeTab.history:
+        return '暂无历史记录';
+      case TvHomeTab.favorite:
+        return '暂无收藏内容';
+      case TvHomeTab.watchLater:
+        return '稍后再看空空的';
+    }
+  }
+
+  bool get currentTabNeedsLogin => !isRecommendTab && !isLogin;
+
   TvVideoCardData? get selectedVideo {
-    final List<TvVideoCardData> list = videos;
+    final List<TvVideoCardData> list = currentVideos;
     if (list.isEmpty) {
       return null;
     }
     return list[selectedIndex.value.clamp(0, list.length - 1)];
   }
 
-  Future<void> load() async {
-    loading.value = true;
-    error.value = null;
+  Future<void> load() => loadRecommend();
+
+  Future<void> loadRecommend({bool force = false}) async {
+    if (recommendLoading.value) {
+      return;
+    }
+    recommendLoading.value = true;
+    recommendError.value = null;
     try {
-      final bool loginStatus = Get.find<TvSessionController>().isLogin.value;
       final dynamic res = await VideoHttp.rcmdVideoListApp(
-        loginStatus: loginStatus,
+        loginStatus: isLogin,
         freshIdx: 0,
       );
       if (res['status'] == true) {
         items.value = List<RecVideoItemAppModel>.from(res['data'] as List);
-        if (items.isNotEmpty) {
-          selectedIndex.value = 0;
+        if (currentTab.value == TvHomeTab.recommend) {
+          _normalizeSelectedIndex(resetWhenEmpty: true);
           schedulePreviewAutoplay(immediate: true);
           scheduleAutoFullscreen();
         }
       } else {
-        error.value = res['msg']?.toString() ?? '加载推荐失败';
+        recommendError.value = res['msg']?.toString() ?? '加载推荐失败';
       }
     } catch (e) {
-      error.value = '加载推荐失败: $e';
-      SmartDialog.showToast(error.value!);
+      recommendError.value = '加载推荐失败: $e';
+      SmartDialog.showToast(recommendError.value!);
     } finally {
-      loading.value = false;
+      recommendLoading.value = false;
     }
   }
 
+  Future<void> switchTab(
+    TvHomeTab tab, {
+    bool forceReload = false,
+  }) async {
+    currentTab.value = tab;
+    selectedIndex.value = 0;
+    if (tab == TvHomeTab.recommend) {
+      if (items.isEmpty && !recommendLoading.value) {
+        unawaited(loadRecommend(force: forceReload));
+      } else {
+        schedulePreviewAutoplay(immediate: true);
+        scheduleAutoFullscreen();
+      }
+      return;
+    }
+    cancelAutoFullscreen();
+    pausePreview();
+    await ensureCurrentTabLoaded(force: forceReload);
+  }
+
+  Future<void> ensureCurrentTabLoaded({bool force = false}) async {
+    if (currentTab.value == TvHomeTab.recommend) {
+      if (force || (items.isEmpty && !recommendLoading.value)) {
+        await loadRecommend(force: true);
+      }
+      return;
+    }
+    if (!isLogin) {
+      return;
+    }
+    switch (currentTab.value) {
+      case TvHomeTab.history:
+        if (force || !_historyLoaded) {
+          await _loadHistory();
+        }
+        return;
+      case TvHomeTab.favorite:
+        if (force || !_favoriteLoaded) {
+          await _loadFavorites();
+        }
+        return;
+      case TvHomeTab.watchLater:
+        if (force || !_watchLaterLoaded) {
+          await _loadWatchLater();
+        }
+        return;
+      case TvHomeTab.recommend:
+        return;
+    }
+  }
+
+  Future<void> retryCurrentTab() async {
+    if (currentTab.value == TvHomeTab.recommend) {
+      await loadRecommend(force: true);
+      return;
+    }
+    await switchTab(currentTab.value, forceReload: true);
+  }
+
   void selectIndex(int index, {bool schedule = true}) {
-    if (items.isEmpty) {
+    final List<TvVideoCardData> list = currentVideos;
+    if (list.isEmpty) {
       selectedIndex.value = 0;
       return;
     }
-    selectedIndex.value = index.clamp(0, items.length - 1);
+    selectedIndex.value = index.clamp(0, list.length - 1);
     if (schedule) {
-      schedulePreviewAutoplay();
-      scheduleAutoFullscreen();
+      if (isRecommendTab) {
+        schedulePreviewAutoplay();
+        scheduleAutoFullscreen();
+      } else {
+        cancelAutoFullscreen();
+        pausePreview();
+      }
     }
   }
 
   void selectNext({bool schedule = true}) {
-    if (items.isEmpty) {
+    final List<TvVideoCardData> list = currentVideos;
+    if (list.isEmpty) {
       return;
     }
-    selectIndex((selectedIndex.value + 1) % items.length, schedule: schedule);
+    selectIndex((selectedIndex.value + 1) % list.length, schedule: schedule);
   }
 
   void selectPrevious({bool schedule = true}) {
-    if (items.isEmpty) {
+    final List<TvVideoCardData> list = currentVideos;
+    if (list.isEmpty) {
       return;
     }
     selectIndex(
-      selectedIndex.value == 0 ? items.length - 1 : selectedIndex.value - 1,
+      selectedIndex.value == 0 ? list.length - 1 : selectedIndex.value - 1,
       schedule: schedule,
     );
   }
 
-  void openSelectedDetail() {
+  Future<void> openSelectedDetail() async {
     final TvVideoCardData? data = selectedVideo;
     if (data == null || data.bvid.isEmpty) {
       return;
     }
     cancelAutoFullscreen();
     pausePreview();
-    Get.toNamed(
+    await Get.toNamed(
       '${TvRoutes.video}?bvid=${data.bvid}&cid=${data.cid}&aid=${data.aid}',
-    )?.whenComplete(() {
-      markRecommendStageActive(true);
-      schedulePreviewAutoplay(immediate: true);
-      scheduleAutoFullscreen();
-    });
+    );
+    markRecommendStageActive(true);
   }
 
-  void playSelected({bool immersive = false}) {
+  Future<void> playSelected({bool immersive = false}) async {
     final TvVideoCardData? data = selectedVideo;
     if (data == null || data.bvid.isEmpty || data.cid <= 0) {
       return;
     }
-    final int startSeconds = _previewStartSecondsFor(data);
+    final String source = isRecommendTab ? 'recommend' : 'home';
+    final int startSeconds = isRecommendTab ? _previewStartSecondsFor(data) : 0;
     cancelAutoFullscreen();
     pausePreview();
-    Get.toNamed(
-      '${TvRoutes.player}?bvid=${data.bvid}&cid=${data.cid}&aid=${data.aid}&source=recommend&index=${selectedIndex.value}&start=$startSeconds',
-    )?.whenComplete(() {
-      markRecommendStageActive(true);
-      schedulePreviewAutoplay(immediate: true);
-      scheduleAutoFullscreen();
-    });
+    final String route = isRecommendTab
+        ? '${TvRoutes.player}?bvid=${data.bvid}&cid=${data.cid}&aid=${data.aid}&source=$source&index=${selectedIndex.value}&start=$startSeconds'
+        : '${TvRoutes.player}?bvid=${data.bvid}&cid=${data.cid}&aid=${data.aid}&source=$source&start=$startSeconds';
+    await Get.toNamed(route);
+    markRecommendStageActive(true);
   }
 
   int _previewStartSecondsFor(TvVideoCardData data) {
-    if (previewBvid.value != data.bvid) {
+    if (!isRecommendTab || previewBvid.value != data.bvid) {
       return 0;
     }
     final int seconds = _previewPlayer?.state.position.inSeconds ?? 0;
@@ -167,14 +339,17 @@ class TvHomeController extends GetxController {
       pausePreview();
       return;
     }
-    schedulePreviewAutoplay(immediate: true);
-    scheduleAutoFullscreen();
+    if (isRecommendTab) {
+      schedulePreviewAutoplay(immediate: true);
+      scheduleAutoFullscreen();
+    }
   }
 
   void schedulePreviewAutoplay({bool immediate = false}) {
     _previewTimer?.cancel();
     final TvVideoCardData? data = selectedVideo;
     if (!_recommendStageActive ||
+        !isRecommendTab ||
         data == null ||
         data.bvid.isEmpty ||
         data.cid <= 0) {
@@ -193,10 +368,7 @@ class TvHomeController extends GetxController {
     );
   }
 
-  Future<void> _startPreview(
-    TvVideoCardData data,
-    int generation,
-  ) async {
+  Future<void> _startPreview(TvVideoCardData data, int generation) async {
     if (!_canAutoActOnRecommend || generation != _previewGeneration) {
       return;
     }
@@ -234,7 +406,7 @@ class TvHomeController extends GetxController {
         pausePlayback: pausePreview,
         resumePlayback: () => schedulePreviewAutoplay(immediate: true),
       );
-    } catch (e) {
+    } catch (_) {
       if (generation == _previewGeneration) {
         previewReady.value = false;
         previewError.value = '预览播放失败';
@@ -295,7 +467,9 @@ class TvHomeController extends GetxController {
     final NativePlayer nativePlayer = player.platform as NativePlayer;
     if (audioUrl.isNotEmpty) {
       await nativePlayer.setProperty(
-          'audio-files', audioUrl.replaceAll(':', r'\:'));
+        'audio-files',
+        audioUrl.replaceAll(':', r'\:'),
+      );
     } else {
       await nativePlayer.setProperty('audio-files', '');
     }
@@ -337,7 +511,7 @@ class TvHomeController extends GetxController {
           return;
         }
         autoFullscreenArmed.value = false;
-        playSelected(immersive: true);
+        unawaited(playSelected(immersive: true));
       });
     });
   }
@@ -350,7 +524,7 @@ class TvHomeController extends GetxController {
   }
 
   void applyAutoFullscreenSettings() {
-    if (!_recommendStageActive) {
+    if (!_recommendStageActive || !isRecommendTab) {
       cancelAutoFullscreen();
       pausePreview();
       return;
@@ -363,10 +537,173 @@ class TvHomeController extends GetxController {
     }
   }
 
+  Future<void> _loadHistory() async {
+    historyLoading.value = true;
+    historyError.value = null;
+    try {
+      final dynamic res = await UserHttp.historyList(null, null);
+      if (res['status'] == true) {
+        final HistoryData data = res['data'] as HistoryData;
+        historyVideos.value = (data.list ?? <HisListItem>[])
+            .map(TvVideoMapper.fromHistory)
+            .toList(growable: false);
+        _historyLoaded = true;
+      } else {
+        historyVideos.clear();
+        historyError.value = res['msg']?.toString() ?? '加载历史失败';
+        _historyLoaded = false;
+      }
+    } catch (e) {
+      historyVideos.clear();
+      historyError.value = '加载历史失败: $e';
+      _historyLoaded = false;
+    } finally {
+      historyLoading.value = false;
+      if (currentTab.value == TvHomeTab.history) {
+        _normalizeSelectedIndex(resetWhenEmpty: true);
+      }
+    }
+  }
+
+  Future<void> _loadWatchLater() async {
+    watchLaterLoading.value = true;
+    watchLaterError.value = null;
+    try {
+      final dynamic res = await UserHttp.seeYouLater();
+      if (res['status'] == true) {
+        final dynamic data = res['data'];
+        final dynamic list = data is Map ? data['list'] : null;
+        watchLaterVideos.value = list is List
+            ? list
+                .whereType<HotVideoItemModel>()
+                .map(TvVideoMapper.fromWatchLater)
+                .toList(growable: false)
+            : <TvVideoCardData>[];
+        _watchLaterLoaded = true;
+      } else {
+        watchLaterVideos.clear();
+        watchLaterError.value = res['msg']?.toString() ?? '加载稍后再看失败';
+        _watchLaterLoaded = false;
+      }
+    } catch (e) {
+      watchLaterVideos.clear();
+      watchLaterError.value = '加载稍后再看失败: $e';
+      _watchLaterLoaded = false;
+    } finally {
+      watchLaterLoading.value = false;
+      if (currentTab.value == TvHomeTab.watchLater) {
+        _normalizeSelectedIndex(resetWhenEmpty: true);
+      }
+    }
+  }
+
+  Future<void> _loadFavorites() async {
+    favoriteLoading.value = true;
+    favoriteError.value = null;
+    favoriteFolderTitle.value = null;
+    try {
+      int mid = _session.userInfo.value?.mid ?? 0;
+      if (mid <= 0) {
+        final dynamic userInfoRes = await UserHttp.userInfo();
+        if (userInfoRes['status'] == true && userInfoRes['data']?.mid != null) {
+          mid = userInfoRes['data'].mid as int;
+        }
+      }
+      if (mid <= 0) {
+        favoriteVideos.clear();
+        favoriteError.value = '无法获取账号信息';
+        _favoriteLoaded = false;
+        return;
+      }
+      final dynamic folderRes =
+          await UserHttp.userfavFolder(pn: 1, ps: 20, mid: mid);
+      if (folderRes['status'] != true) {
+        favoriteVideos.clear();
+        favoriteError.value = folderRes['msg']?.toString() ?? '加载收藏失败';
+        _favoriteLoaded = false;
+        return;
+      }
+      final FavFolderData folderData = folderRes['data'] as FavFolderData;
+      final List<FavFolderItemData> folders =
+          folderData.list ?? <FavFolderItemData>[];
+      if (folders.isEmpty) {
+        favoriteVideos.clear();
+        favoriteFolderTitle.value = null;
+        _favoriteLoaded = true;
+        return;
+      }
+      final FavFolderItemData folder = folders.first;
+      favoriteFolderTitle.value = folder.title;
+      final int mediaId = folder.id ?? 0;
+      if (mediaId <= 0) {
+        favoriteVideos.clear();
+        favoriteError.value = '收藏夹参数无效';
+        _favoriteLoaded = false;
+        return;
+      }
+      final dynamic detailRes = await UserHttp.userFavFolderDetail(
+        mediaId: mediaId,
+        pn: 1,
+        ps: 20,
+      );
+      if (detailRes['status'] == true) {
+        final FavDetailData data = detailRes['data'] as FavDetailData;
+        favoriteVideos.value = (data.medias ?? <FavDetailItemData>[])
+            .map(TvVideoMapper.fromFavDetail)
+            .toList(growable: false);
+        _favoriteLoaded = true;
+      } else {
+        favoriteVideos.clear();
+        favoriteError.value = detailRes['msg']?.toString() ?? '加载收藏失败';
+        _favoriteLoaded = false;
+      }
+    } catch (e) {
+      favoriteVideos.clear();
+      favoriteError.value = '加载收藏失败: $e';
+      _favoriteLoaded = false;
+    } finally {
+      favoriteLoading.value = false;
+      if (currentTab.value == TvHomeTab.favorite) {
+        _normalizeSelectedIndex(resetWhenEmpty: true);
+      }
+    }
+  }
+
+  void _normalizeSelectedIndex({bool resetWhenEmpty = false}) {
+    final List<TvVideoCardData> list = currentVideos;
+    if (list.isEmpty) {
+      if (resetWhenEmpty) {
+        selectedIndex.value = 0;
+      }
+      cancelAutoFullscreen();
+      pausePreview();
+      return;
+    }
+    selectedIndex.value = selectedIndex.value.clamp(0, list.length - 1);
+  }
+
+  void _handleLoginChanged(bool loggedIn) {
+    _historyLoaded = false;
+    _favoriteLoaded = false;
+    _watchLaterLoaded = false;
+    historyVideos.clear();
+    favoriteVideos.clear();
+    watchLaterVideos.clear();
+    favoriteFolderTitle.value = null;
+    historyError.value = null;
+    favoriteError.value = null;
+    watchLaterError.value = null;
+    unawaited(loadRecommend(force: true));
+    if (loggedIn && !isRecommendTab) {
+      unawaited(ensureCurrentTabLoaded(force: true));
+    }
+  }
+
   @override
   void onInit() {
     super.onInit();
-    load();
+    _loginWorker = ever<bool>(_session.isLogin, _handleLoginChanged);
+    unawaited(loadRecommend());
   }
 
   @override
@@ -375,6 +712,7 @@ class TvHomeController extends GetxController {
     _previewTimer?.cancel();
     _antiAddiction.stopCounting();
     _previewPlayer?.dispose();
+    _loginWorker?.dispose();
     super.onClose();
   }
 }

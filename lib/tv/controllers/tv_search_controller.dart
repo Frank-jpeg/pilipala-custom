@@ -13,6 +13,9 @@ class TvSearchController extends GetxController {
   final RxBool loadingSearch = false.obs;
   final RxnString error = RxnString();
 
+  // 递增序号，用于丢弃过期搜索响应，避免慢的旧请求覆盖新请求的结果。
+  int _searchSeq = 0;
+
   Future<void> loadHot() async {
     loadingHot.value = true;
     error.value = null;
@@ -36,6 +39,7 @@ class TvSearchController extends GetxController {
       results.clear();
       return;
     }
+    final int seq = ++_searchSeq;
     loadingSearch.value = true;
     error.value = null;
     try {
@@ -44,6 +48,10 @@ class TvSearchController extends GetxController {
         keyword: value,
         page: 1,
       );
+      if (seq != _searchSeq) {
+        // 已有更新的搜索发出，丢弃这次过期结果。
+        return;
+      }
       if (res is! Map) {
         results.clear();
         error.value = '搜索失败: 返回数据异常';
@@ -62,10 +70,15 @@ class TvSearchController extends GetxController {
         SmartDialog.showToast(error.value!);
       }
     } catch (e) {
+      if (seq != _searchSeq) {
+        return;
+      }
       error.value = '搜索失败: $e';
       SmartDialog.showToast(error.value!);
     } finally {
-      loadingSearch.value = false;
+      if (seq == _searchSeq) {
+        loadingSearch.value = false;
+      }
     }
   }
 

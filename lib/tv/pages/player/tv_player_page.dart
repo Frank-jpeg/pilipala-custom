@@ -137,7 +137,11 @@ class TvPlayerPage extends StatelessWidget {
 
   void _exitPlayer(TvPlayerController controller) {
     if (controller.isRecommendSource) {
-      Get.offAllNamed(TvRoutes.shell);
+      Get.back();
+      return;
+    }
+    if (controller.isHomeSource) {
+      Get.back();
       return;
     }
     final String bvid = controller.bvid;

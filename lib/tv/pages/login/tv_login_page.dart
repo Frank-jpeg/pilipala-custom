@@ -84,9 +84,15 @@ class _TvLoginPageState extends State<TvLoginPage> {
   }
 
   void _syncCaptchaPointerBounds(Size bounds) {
-    if (!controller.captchaVisible.value ||
-        bounds.width <= 0 ||
-        bounds.height <= 0) {
+    if (!controller.captchaVisible.value) {
+      // 验证码关闭后重置，下次弹出按首帧处理（重新居中并夺取焦点）。
+      _captchaPointerBounds = Size.zero;
+      return;
+    }
+    // 关键：bounds 不变时直接返回，否则 build->postFrame setState->build 会每帧无限重建。
+    if (bounds.width <= 0 ||
+        bounds.height <= 0 ||
+        _captchaPointerBounds == bounds) {
       return;
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {

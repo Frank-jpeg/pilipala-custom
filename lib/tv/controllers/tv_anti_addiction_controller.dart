@@ -31,6 +31,7 @@ class TvAntiAddictionController extends GetxController
   VoidCallback? _pausePlayback;
   VoidCallback? _resumePlayback;
   bool _isCounting = false;
+  bool _pausedByLifecycle = false;
   int _lastTickMs = 0;
 
   String get pin =>
@@ -160,14 +161,14 @@ class TvAntiAddictionController extends GetxController
     _watchTimer = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
   }
 
-  void stopCounting() {
+  void stopCounting({bool keepCallbacks = false}) {
     if (_isCounting) {
       _tick();
     }
     _isCounting = false;
     _watchTimer?.cancel();
     _watchTimer = null;
-    if (!isLocked.value) {
+    if (!isLocked.value && !keepCallbacks) {
       _pausePlayback = null;
       _resumePlayback = null;
     }
@@ -253,6 +254,11 @@ class TvAntiAddictionController extends GetxController
     }
     remainingLockSeconds.value = 0;
     _lockTimer?.cancel();
+    // 每日上限锁定期间挂一个定时器，跨天时自动解锁；否则会一直锁到 App 重启或家长 PIN。
+    _lockTimer = Timer.periodic(
+      const Duration(minutes: 1),
+      (_) => _rollDailyIfNeeded(),
+    );
   }
 
   void _startLockCountdown(int untilMs) {
@@ -295,10 +301,25 @@ class TvAntiAddictionController extends GetxController
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // 回到前台且此前因切后台/瞬时失焦而停表，则继续计时（回调已保留）。
+      if (_pausedByLifecycle) {
+        _pausedByLifecycle = false;
+        final VoidCallback? pause = _pausePlayback;
+        if (pause != null && enabled.value && !isLocked.value) {
+          startCounting(pausePlayback: pause, resumePlayback: _resumePlayback);
+        }
+      }
+      return;
+    }
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.detached) {
-      stopCounting();
+      // 只在正计时时记标记，并保留回调，避免瞬时 inactive 后计时永久停止（防沉迷被绕过）。
+      if (_isCounting) {
+        _pausedByLifecycle = true;
+        stopCounting(keepCallbacks: true);
+      }
     }
   }
 

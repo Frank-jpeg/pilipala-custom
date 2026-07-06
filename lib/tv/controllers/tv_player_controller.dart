@@ -24,6 +24,7 @@ class TvPlayerController extends GetxController {
   int _aid = 0;
   int _recommendIndex = 0;
   int _startSeconds = 0;
+  String _source = '';
   bool _isRecommendSource = false;
 
   String get bvid => _bvid;
@@ -31,7 +32,9 @@ class TvPlayerController extends GetxController {
   int get aid => _aid;
   int get recommendIndex => _recommendIndex;
   int get startSeconds => _startSeconds;
+  String get source => _source;
   bool get isRecommendSource => _isRecommendSource;
+  bool get isHomeSource => _source == 'home';
 
   Worker? _positionWorker;
   Worker? _statusWorker;
@@ -44,7 +47,8 @@ class TvPlayerController extends GetxController {
     _recommendIndex = int.tryParse(Get.parameters['index'] ?? '0') ?? 0;
     _startSeconds =
         (int.tryParse(Get.parameters['start'] ?? '0') ?? 0).clamp(0, 86400);
-    _isRecommendSource = Get.parameters['source'] == 'recommend';
+    _source = Get.parameters['source'] ?? '';
+    _isRecommendSource = _source == 'recommend';
   }
 
   Future<void> initPlayer() async {

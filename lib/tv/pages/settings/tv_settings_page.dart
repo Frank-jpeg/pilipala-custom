@@ -96,9 +96,9 @@ class TvSettingsPage extends StatelessWidget {
                     '${controller.antiAddiction.sessionLimitMinutes.value} 分钟',
                 actions: <Widget>[
                   TvFocusableButton(
-                    label: '切换',
+                    label: '选择',
                     icon: Icons.timer_outlined,
-                    onPressed: () => controller.cycleSessionLimit(context),
+                    onPressed: () => controller.selectSessionLimit(context),
                   ),
                 ],
               ),
@@ -109,9 +109,9 @@ class TvSettingsPage extends StatelessWidget {
                 value: '${controller.antiAddiction.restMinutes.value} 分钟',
                 actions: <Widget>[
                   TvFocusableButton(
-                    label: '切换',
+                    label: '选择',
                     icon: Icons.self_improvement_outlined,
-                    onPressed: () => controller.cycleRestMinutes(context),
+                    onPressed: () => controller.selectRestMinutes(context),
                   ),
                 ],
               ),
@@ -122,9 +122,9 @@ class TvSettingsPage extends StatelessWidget {
                 value: controller.dailyLimitLabel,
                 actions: <Widget>[
                   TvFocusableButton(
-                    label: '切换',
+                    label: '选择',
                     icon: Icons.today_outlined,
-                    onPressed: () => controller.cycleDailyLimit(context),
+                    onPressed: () => controller.selectDailyLimit(context),
                   ),
                 ],
               ),

@@ -21,11 +21,13 @@ class TvLeftNav extends StatefulWidget {
     required this.items,
     required this.selectedIndex,
     this.focusNodes,
+    this.onItemKey,
   });
 
   final List<TvNavItem> items;
   final int selectedIndex;
   final List<FocusNode>? focusNodes;
+  final KeyEventResult Function(int index, LogicalKeyboardKey key)? onItemKey;
 
   @override
   State<TvLeftNav> createState() => _TvLeftNavState();
@@ -78,6 +80,9 @@ class _TvLeftNavState extends State<TvLeftNav> {
                             event.logicalKey == LogicalKeyboardKey.enter)) {
                       item.onTap();
                       return KeyEventResult.handled;
+                    }
+                    if (event is KeyDownEvent && widget.onItemKey != null) {
+                      return widget.onItemKey!(index, event.logicalKey);
                     }
                     return KeyEventResult.ignored;
                   },

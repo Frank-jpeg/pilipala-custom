@@ -46,7 +46,9 @@ class ApiInterceptor extends Interceptor {
     // 处理网络请求错误
     // handler.next(err);
     String url = err.requestOptions.uri.toString();
-    final excludedPatterns = RegExp(r'heartbeat|seg\.so|online/total');
+    // 更新检查走 GitHub，大陆网络常不可达；静默检查失败不应在启动时弹“网络错误”toast。
+    final excludedPatterns =
+        RegExp(r'heartbeat|seg\.so|online/total|api\.github\.com');
     if (!excludedPatterns.hasMatch(url)) {
       SmartDialog.showToast(
         await dioError(err),

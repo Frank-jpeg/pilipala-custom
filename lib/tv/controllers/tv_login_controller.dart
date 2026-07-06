@@ -35,13 +35,27 @@ class TvLoginController extends GetxController {
   bool _polling = false;
 
   void setLoginMode(int mode) {
+    final int previous = loginMode.value;
     loginMode.value = mode.clamp(0, 3);
+    error.value = null;
+    if (previous == loginMode.value) {
+      return;
+    }
+    // 切换登录方式时清掉短信中间态，避免把上一种方式（TV 原生 / 网页）的 captcha_key、
+    // 验证码步骤带到另一种方式导致登录失败；手机号保留，方便重发。
+    if (previous == 1 || previous == 2 || loginMode.value == 1 || loginMode.value == 2) {
+      smsStep.value = 0;
+      smsCodeInput.value = '';
+      captchaKey = null;
+      smsCountdown.value = 0;
+      smsTimer?.cancel();
+    }
     if (loginMode.value != 0) {
       pollTimer?.cancel();
-    } else if (qrUrl.value.isEmpty) {
+    } else if (qrUrl.value.isEmpty || !(pollTimer?.isActive ?? false)) {
+      // 回到扫码模式时，若二维码为空或轮询已停，重新生成二维码并恢复轮询。
       startLogin();
     }
-    error.value = null;
   }
 
   Future<void> startLogin() async {
@@ -294,7 +308,14 @@ class TvLoginController extends GetxController {
       );
       if (res['status'] == true && res['data'] is Map) {
         final Map<dynamic, dynamic> data = res['data'] as Map<dynamic, dynamic>;
-        final String accessKey = data['access_token']?.toString() ??
+        // 登录响应里带 cookie_info（SESSDATA/bili_jct/DedeUserID 等 Web cookie）。
+        // 之前只取 access_key，导致历史/收藏/稍后再看/搜索等走 Web cookie 的接口报“账号未登录”。
+        await _saveCookiesFromLoginData(data);
+        // token 字段兼容扁平与 token_info 嵌套两种返回结构。
+        final Map<dynamic, dynamic> tokenInfo =
+            data['token_info'] is Map ? data['token_info'] as Map : data;
+        final String accessKey = tokenInfo['access_token']?.toString() ??
+            data['access_token']?.toString() ??
             data['access_key']?.toString() ??
             '';
         if (accessKey.isEmpty) {
@@ -307,10 +328,10 @@ class TvLoginController extends GetxController {
           silent: true,
           clearOnFailure: false,
           tokenInfo: <String, Object?>{
-            'mid': _parseInt(data['mid']),
-            'refresh_token': data['refresh_token']?.toString() ?? '',
-            'expires': _parseInt(data['expires']),
-            'expires_in': _parseInt(data['expires_in']),
+            'mid': _parseInt(tokenInfo['mid']),
+            'refresh_token': tokenInfo['refresh_token']?.toString() ?? '',
+            'expires': _parseInt(tokenInfo['expires']),
+            'expires_in': _parseInt(tokenInfo['expires_in']),
           },
         );
         if (success) {
@@ -516,6 +537,40 @@ class TvLoginController extends GetxController {
     await Request.cookieManager.cookieJar
         .saveFromResponse(Uri.parse(HttpString.tUrl), cookies);
     Request.dio.options.headers['cookie'] = cookies
+        .map((Cookie cookie) => '${cookie.name}=${cookie.value}')
+        .join('; ');
+  }
+
+  // TV 手机号登录返回的 cookie_info.cookies 里含 SESSDATA/bili_jct/DedeUserID 等 Web cookie，
+  // 种进 cookie jar 后，历史/收藏/稍后再看/搜索等走 Web cookie 的接口才能识别登录态。
+  Future<void> _saveCookiesFromLoginData(Map<dynamic, dynamic> data) async {
+    final dynamic cookieInfo = data['cookie_info'];
+    if (cookieInfo is! Map) {
+      return;
+    }
+    final dynamic rawCookies = cookieInfo['cookies'];
+    if (rawCookies is! List) {
+      return;
+    }
+    final List<Cookie> cookies = <Cookie>[];
+    for (final dynamic item in rawCookies) {
+      if (item is Map && item['name'] != null && item['value'] != null) {
+        cookies.add(Cookie(item['name'].toString(), item['value'].toString()));
+      }
+    }
+    if (cookies.isEmpty) {
+      return;
+    }
+    await Request.cookieManager.cookieJar
+        .saveFromResponse(Uri.parse(HttpString.baseUrl), cookies);
+    await Request.cookieManager.cookieJar
+        .saveFromResponse(Uri.parse(HttpString.apiBaseUrl), cookies);
+    await Request.cookieManager.cookieJar
+        .saveFromResponse(Uri.parse(HttpString.tUrl), cookies);
+    // 用 jar 里合并后的全量 cookie 设请求头，避免覆盖掉已有的 buvid3 等。
+    final List<Cookie> merged = await Request.cookieManager.cookieJar
+        .loadForRequest(Uri.parse(HttpString.apiBaseUrl));
+    Request.dio.options.headers['cookie'] = merged
         .map((Cookie cookie) => '${cookie.name}=${cookie.value}')
         .join('; ');
   }

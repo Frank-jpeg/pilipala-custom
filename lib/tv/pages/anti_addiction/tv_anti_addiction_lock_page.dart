@@ -4,13 +4,48 @@ import 'package:get/get.dart';
 import 'package:pilipala/tv/controllers/tv_anti_addiction_controller.dart';
 import 'package:pilipala/tv/widgets/tv_focusable_button.dart';
 
-class TvAntiAddictionLockOverlay extends StatelessWidget {
+class TvAntiAddictionLockOverlay extends StatefulWidget {
   const TvAntiAddictionLockOverlay({super.key});
 
   @override
+  State<TvAntiAddictionLockOverlay> createState() =>
+      _TvAntiAddictionLockOverlayState();
+}
+
+class _TvAntiAddictionLockOverlayState
+    extends State<TvAntiAddictionLockOverlay> {
+  final TvAntiAddictionController controller =
+      Get.find<TvAntiAddictionController>();
+  final FocusNode _lockFocusNode = FocusNode(debugLabel: 'tvAntiAddictionLock');
+  Worker? _lockWorker;
+  bool _pinDialogShowing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // autofocus 在根 scope 已有焦点子节点时会被丢弃，导致锁屏抢不到焦点、拦不住遥控器。
+    // 这里在锁定生效时主动把焦点移入锁屏，确保它真正接管 DPAD/OK 输入。
+    _lockWorker = ever<bool>(controller.isLocked, (bool locked) {
+      if (!locked) {
+        return;
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && controller.isLocked.value) {
+          _lockFocusNode.requestFocus();
+        }
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _lockWorker?.dispose();
+    _lockFocusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final TvAntiAddictionController controller =
-        Get.find<TvAntiAddictionController>();
     return Obx(
       () {
         if (!controller.isLocked.value) {
@@ -18,16 +53,9 @@ class TvAntiAddictionLockOverlay extends StatelessWidget {
         }
         return Positioned.fill(
           child: Focus(
+            focusNode: _lockFocusNode,
             autofocus: true,
-            onKeyEvent: (FocusNode node, KeyEvent event) {
-              if (event is KeyDownEvent &&
-                  (event.logicalKey == LogicalKeyboardKey.escape ||
-                      event.logicalKey == LogicalKeyboardKey.goBack ||
-                      event.logicalKey == LogicalKeyboardKey.browserBack)) {
-                return KeyEventResult.handled;
-              }
-              return KeyEventResult.ignored;
-            },
+            onKeyEvent: _handleLockKey,
             child: PopScope(
               canPop: false,
               child: Material(
@@ -74,7 +102,7 @@ class TvAntiAddictionLockOverlay extends StatelessWidget {
                             autofocus: true,
                             icon: Icons.pin_outlined,
                             label: '家长 PIN 解锁',
-                            onPressed: () => _showPinDialog(context),
+                            onPressed: _showPinDialog,
                           ),
                         ],
                       ),
@@ -89,22 +117,55 @@ class TvAntiAddictionLockOverlay extends StatelessWidget {
     );
   }
 
-  Future<void> _showPinDialog(BuildContext context) async {
-    final TvAntiAddictionController controller =
-        Get.find<TvAntiAddictionController>();
-    final String? pin = await showTvPinDialog(
-      context,
-      title: '家长 PIN 解锁',
-      confirmLabel: '解锁',
-    );
-    if (pin == null) {
+  KeyEventResult _handleLockKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    final LogicalKeyboardKey key = event.logicalKey;
+    if (key == LogicalKeyboardKey.select ||
+        key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.gameButtonA) {
+      if (event is KeyDownEvent) {
+        _showPinDialog();
+      }
+      return KeyEventResult.handled;
+    }
+    // 锁屏期间吞掉方向键 / 返回键等其它按键，禁止焦点遍历到锁屏背后的控件。
+    return KeyEventResult.handled;
+  }
+
+  Future<void> _showPinDialog() async {
+    if (_pinDialogShowing) {
       return;
     }
-    if (!controller.verifyPin(pin)) {
-      Get.snackbar('PIN 错误', '请重新输入 4 位家长 PIN');
+    // 锁屏 overlay 挂在 Navigator 之外，其 context 没有 Navigator 祖先，
+    // 直接用它调 showDialog 会崩；改用 GetMaterialApp 的导航 context。
+    final BuildContext? dialogContext = Get.overlayContext ?? Get.context;
+    if (dialogContext == null) {
       return;
     }
-    await controller.unlockByPin();
+    _pinDialogShowing = true;
+    try {
+      final String? pin = await showTvPinDialog(
+        dialogContext,
+        title: '家长 PIN 解锁',
+        confirmLabel: '解锁',
+      );
+      if (pin == null) {
+        return;
+      }
+      if (!controller.verifyPin(pin)) {
+        Get.snackbar('PIN 错误', '请重新输入 4 位家长 PIN');
+        return;
+      }
+      await controller.unlockByPin();
+    } finally {
+      _pinDialogShowing = false;
+      // PIN 错误或取消后仍处于锁定，把焦点收回锁屏。
+      if (mounted && controller.isLocked.value) {
+        _lockFocusNode.requestFocus();
+      }
+    }
   }
 }
 
@@ -115,26 +176,29 @@ class _LockCountdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (controller.lockReason.value == TvAntiAddictionLockReason.dailyLimit) {
-      return const Text(
-        '今日已锁定',
-        style: TextStyle(
+    // 之前这些 Rx 读取在外层 Obx 闭包之外，休息倒计时不会逐秒刷新；用自己的 Obx 订阅。
+    return Obx(() {
+      if (controller.lockReason.value == TvAntiAddictionLockReason.dailyLimit) {
+        return const Text(
+          '今日已锁定',
+          style: TextStyle(
+            color: Color(0xFFFF7BAC),
+            fontSize: 30,
+            fontWeight: FontWeight.w900,
+          ),
+        );
+      }
+      final int seconds = controller.remainingLockSeconds.value;
+      return Text(
+        _formatDuration(seconds),
+        style: const TextStyle(
           color: Color(0xFFFF7BAC),
-          fontSize: 30,
+          fontSize: 44,
           fontWeight: FontWeight.w900,
+          letterSpacing: 1,
         ),
       );
-    }
-    final int seconds = controller.remainingLockSeconds.value;
-    return Text(
-      _formatDuration(seconds),
-      style: const TextStyle(
-        color: Color(0xFFFF7BAC),
-        fontSize: 44,
-        fontWeight: FontWeight.w900,
-        letterSpacing: 1,
-      ),
-    );
+    });
   }
 
   String _formatDuration(int seconds) {
@@ -494,6 +558,80 @@ class _PinPadButtonState extends State<_PinPadButton> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 通用 TV 选项选择对话框：方向键在选项间移动，OK 选中并返回该值，返回键取消返回 null。
+Future<int?> showTvOptionDialog({
+  required BuildContext context,
+  required String title,
+  required List<int> options,
+  required int current,
+  required String Function(int value) labelBuilder,
+}) {
+  return showDialog<int>(
+    context: context,
+    barrierDismissible: false,
+    builder: (BuildContext context) {
+      return _TvOptionDialog(
+        title: title,
+        options: options,
+        current: current,
+        labelBuilder: labelBuilder,
+      );
+    },
+  );
+}
+
+class _TvOptionDialog extends StatelessWidget {
+  const _TvOptionDialog({
+    required this.title,
+    required this.options,
+    required this.current,
+    required this.labelBuilder,
+  });
+
+  final String title;
+  final List<int> options;
+  final int current;
+  final String Function(int value) labelBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: const Color(0xFF121A2B),
+      title: Text(title),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            for (final int option in options) ...<Widget>[
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TvFocusableButton(
+                  autofocus: option == current,
+                  icon: option == current
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_unchecked,
+                  label: labelBuilder(option),
+                  onPressed: () => Navigator.of(context).pop(option),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ],
+        ),
+      ),
+      actions: <Widget>[
+        TvFocusableButton(
+          icon: Icons.close,
+          label: '取消',
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ],
     );
   }
 }

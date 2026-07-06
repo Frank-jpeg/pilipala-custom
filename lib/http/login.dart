@@ -9,7 +9,6 @@ import 'package:pilipala/http/constants.dart';
 import 'package:uuid/uuid.dart';
 import '../models/login/index.dart';
 import '../utils/login.dart';
-import '../utils/utils.dart';
 import 'index.dart';
 
 class LoginHttp {
@@ -152,7 +151,7 @@ class LoginHttp {
       });
       final Response<dynamic> res = await Request.dio.post(
         Api.tvSmsCode,
-        data: data,
+        data: _tvEncodedQuery(data),
         options: _tvFormOptions(),
       );
       return _tvResponse(res);
@@ -187,7 +186,7 @@ class LoginHttp {
       });
       final Response<dynamic> res = await Request.dio.post(
         Api.tvSmsLogin,
-        data: data,
+        data: _tvEncodedQuery(data),
         options: _tvFormOptions(),
       );
       return _tvResponse(res);
@@ -199,8 +198,7 @@ class LoginHttp {
   static Future<Map<String, dynamic>?> _getTvLoginKey() async {
     final Map<String, dynamic> params = await signedTvParams();
     final Response<dynamic> res = await Request.dio.get(
-      Api.tvLoginKey,
-      queryParameters: params,
+      '${Api.tvLoginKey}?${_tvEncodedQuery(params)}',
       options: Options(headers: <String, dynamic>{'user-agent': _tvUserAgent}),
     );
     final dynamic body = res.data;
@@ -230,13 +228,26 @@ class LoginHttp {
       ...await tvCommonParams(),
       ...?params,
     }..removeWhere((String key, dynamic value) => value == null);
-    final String sign = Utils.appSign(
-      signed,
-      Constants.appKey,
-      Constants.appSec,
-    );
+    // Bilibili 的 app 签名要求带秒级时间戳 ts，缺失会被服务端判为 -400 请求错误。
+    // 官方 TV 端由 native signQuery 自动补 ts，这里对齐 member.dart 里其它 app 签名请求的写法。
+    signed['ts'] = (DateTime.now().millisecondsSinceEpoch ~/ 1000).toString();
+    // 官方 okhttp FormBody 用 %20 编码空格，服务端按同样规则校验 sign；
+    // Dart 的 Uri 默认把空格编成 +，机型名（model / device_platform）常带空格，
+    // 会导致 sign 与请求体不一致而报错，这里统一用 %20 计算签名与拼接请求体。
+    final String sign = md5
+        .convert(utf8.encode('${_tvEncodedQuery(signed)}${Constants.appSec}'))
+        .toString();
     signed['sign'] = sign;
     return signed;
+  }
+
+  // 按 key 排序后用 %20 编码拼接成 query/body，签名与实际发送共用，保证一致。
+  static String _tvEncodedQuery(Map<String, dynamic> params) {
+    final List<String> keys = params.keys.toList()..sort();
+    return keys
+        .map((String key) =>
+            '$key=${Uri.encodeQueryComponent(params[key].toString()).replaceAll('+', '%20')}')
+        .join('&');
   }
 
   static Future<Map<String, dynamic>> tvCommonParams() async {
