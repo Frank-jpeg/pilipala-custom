@@ -15,7 +15,9 @@ class PlDanmakuController {
 
   void initiate(int videoDuration, int progress) {
     if (requestedSeg.isEmpty) {
-      int segCount = (videoDuration / segmentLength).ceil();
+      final int currentSegment = calcSegment(progress);
+      final int segCount = ((videoDuration / segmentLength).ceil())
+          .clamp(currentSegment + 1, 999);
       requestedSeg = List<bool>.generate(segCount, (index) => false);
     }
     try {
@@ -35,8 +37,16 @@ class PlDanmakuController {
   }
 
   void queryDanmaku(int segmentIndex) async {
-    assert(requestedSeg[segmentIndex] == false);
-    if (requestedSeg.length > segmentIndex) {
+    if (segmentIndex < 0) {
+      return;
+    }
+    if (requestedSeg.length <= segmentIndex) {
+      requestedSeg.addAll(
+        List<bool>.generate(
+            segmentIndex - requestedSeg.length + 1, (_) => false),
+      );
+    }
+    if (!requestedSeg[segmentIndex]) {
       requestedSeg[segmentIndex] = true;
       final DmSegMobileReply result = await DanmakaHttp.queryDanmaku(
           cid: cid, segmentIndex: segmentIndex + 1);
@@ -54,6 +64,10 @@ class PlDanmakuController {
 
   List<DanmakuElem>? getCurrentDanmaku(int progress) {
     int segmentIndex = calcSegment(progress);
+    if (requestedSeg.isEmpty || requestedSeg.length <= segmentIndex) {
+      queryDanmaku(segmentIndex);
+      return dmSegMap[progress ~/ 100];
+    }
     if (!requestedSeg[segmentIndex]) {
       queryDanmaku(segmentIndex);
     }

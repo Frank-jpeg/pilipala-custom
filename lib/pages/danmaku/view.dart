@@ -51,9 +51,7 @@ class _PlDanmakuState extends State<PlDanmaku> {
     playerController = widget.playerController;
     if (mounted && widget.type == 'video') {
       if (enableShowDanmaku || playerController.isOpenDanmu.value) {
-        _plDanmakuController.initiate(
-            playerController.duration.value.inMilliseconds,
-            playerController.position.value.inMilliseconds);
+        _tryInitiateDanmaku();
       }
       playerController
         ..addStatusLister(playerListener)
@@ -61,10 +59,8 @@ class _PlDanmakuState extends State<PlDanmaku> {
     }
     if (widget.type == 'video') {
       playerController.isOpenDanmu.listen((p0) {
-        if (p0 && !_plDanmakuController.initiated) {
-          _plDanmakuController.initiate(
-              playerController.duration.value.inMilliseconds,
-              playerController.position.value.inMilliseconds);
+        if (p0) {
+          _tryInitiateDanmaku();
         }
       });
     }
@@ -74,6 +70,16 @@ class _PlDanmakuState extends State<PlDanmaku> {
     fontSizeVal = playerController.fontSizeVal;
     strokeWidth = playerController.strokeWidth;
     danmakuDurationVal = playerController.danmakuDurationVal;
+  }
+
+  void _tryInitiateDanmaku() {
+    if (_plDanmakuController.initiated) {
+      return;
+    }
+    _plDanmakuController.initiate(
+      playerController.duration.value.inMilliseconds,
+      playerController.position.value.inMilliseconds,
+    );
   }
 
   // 播放器状态监听
@@ -97,6 +103,9 @@ class _PlDanmakuState extends State<PlDanmaku> {
     final DanmakuController? controller = _controller;
     if (controller == null) {
       return;
+    }
+    if (!_plDanmakuController.initiated) {
+      _tryInitiateDanmaku();
     }
     int currentPosition = position.inMilliseconds;
     currentPosition -= currentPosition % 100; //取整百的毫秒数

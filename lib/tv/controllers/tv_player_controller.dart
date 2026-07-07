@@ -133,6 +133,9 @@ class TvPlayerController extends GetxController {
         autoplay: true,
         enableHA: false,
         seekTo: Duration(seconds: startSeconds.clamp(0, 86400)),
+        duration: playData.timeLength == null
+            ? null
+            : Duration(milliseconds: playData.timeLength!),
         bvid: bvid,
         cid: cid,
       );
