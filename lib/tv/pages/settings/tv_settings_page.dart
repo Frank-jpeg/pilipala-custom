@@ -69,6 +69,23 @@ class TvSettingsPage extends StatelessWidget {
                   ),
                 ],
               ),
+              const SizedBox(height: 18),
+              _SettingRow(
+                title: '播放器弹幕',
+                subtitle: controller.danmakuEnabled.value
+                    ? '播放视频时默认显示弹幕'
+                    : '播放视频时默认隐藏弹幕',
+                value: controller.danmakuEnabled.value ? '已开启' : '已关闭',
+                actions: <Widget>[
+                  TvFocusableButton(
+                    label: controller.danmakuEnabled.value ? '关闭' : '开启',
+                    icon: controller.danmakuEnabled.value
+                        ? Icons.toggle_on
+                        : Icons.toggle_off,
+                    onPressed: controller.toggleDanmaku,
+                  ),
+                ],
+              ),
               const SizedBox(height: 30),
               const _SectionTitle(title: '防沉迷'),
               const SizedBox(height: 18),

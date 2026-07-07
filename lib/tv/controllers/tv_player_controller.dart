@@ -10,14 +10,20 @@ import 'package:pilipala/plugin/pl_player/models/play_status.dart';
 import 'package:pilipala/tv/controllers/tv_anti_addiction_controller.dart';
 import 'package:pilipala/tv/controllers/tv_home_controller.dart';
 import 'package:pilipala/tv/models/tv_video_card_data.dart';
+import 'package:pilipala/utils/storage.dart';
 
 class TvPlayerController extends GetxController {
   final PlPlayerController player = PlPlayerController(videoType: 'archive');
   final RxBool loading = true.obs;
   final RxBool controlsVisible = true.obs;
+  final RxBool menuVisible = false.obs;
+  final RxInt menuIndex = 0.obs;
+  final RxBool thinProgressEnabled = true.obs;
   final RxDouble volume = 1.0.obs;
+  final RxDouble playbackSpeed = 1.0.obs;
   final RxnString error = RxnString();
   final RxnString title = RxnString();
+  final RxInt currentCid = 0.obs;
 
   String _bvid = '';
   int _cid = 0;
@@ -49,6 +55,10 @@ class TvPlayerController extends GetxController {
         (int.tryParse(Get.parameters['start'] ?? '0') ?? 0).clamp(0, 86400);
     _source = Get.parameters['source'] ?? '';
     _isRecommendSource = _source == 'recommend';
+    thinProgressEnabled.value = GStrorage.setting.get(
+      SettingBoxKey.tvPlayerThinProgressEnable,
+      defaultValue: true,
+    ) as bool;
   }
 
   Future<void> initPlayer() async {
@@ -68,11 +78,20 @@ class TvPlayerController extends GetxController {
     loading.value = true;
     error.value = null;
     this.title.value = title;
+    player.danmakuController?.clear();
+    player.danmakuController = null;
     try {
       if (bvid.isEmpty || cid <= 0) {
         error.value = '播放参数缺失';
         return;
       }
+      _bvid = bvid;
+      _cid = cid;
+      currentCid.value = cid;
+      player.isOpenDanmu.value = GStrorage.setting.get(
+        SettingBoxKey.enableShowDanmaku,
+        defaultValue: true,
+      ) as bool;
       final dynamic res = await VideoHttp.videoUrl(
         bvid: bvid,
         cid: cid,
@@ -119,6 +138,7 @@ class TvPlayerController extends GetxController {
       );
       await player.getCurrentVolume();
       volume.value = player.volume.value;
+      playbackSpeed.value = player.playbackSpeed;
       _syncAntiAddictionWithPlayer();
     } catch (e) {
       error.value = '播放器初始化失败: $e';
@@ -151,6 +171,7 @@ class TvPlayerController extends GetxController {
       title: data.title,
       startSeconds: startSeconds,
     );
+    _aid = data.aid;
   }
 
   Future<void> playNextRecommend() async {
@@ -176,6 +197,76 @@ class TvPlayerController extends GetxController {
   Future<void> togglePlay() async {
     await player.togglePlay();
     controlsVisible.value = true;
+  }
+
+  Future<void> toggleDanmaku() async {
+    final bool next = !player.isOpenDanmu.value;
+    player.isOpenDanmu.value = next;
+    await GStrorage.setting.put(SettingBoxKey.enableShowDanmaku, next);
+    menuVisible.value = true;
+    controlsVisible.value = true;
+  }
+
+  Future<void> cyclePlaybackSpeed() async {
+    const List<double> speeds = <double>[1.0, 1.25, 1.5, 2.0];
+    final double current = player.playbackSpeed;
+    final int index = speeds.indexWhere((double speed) {
+      return (speed - current).abs() < 0.01;
+    });
+    final double next = speeds[(index + 1) % speeds.length];
+    await player.setPlaybackSpeed(next);
+    playbackSpeed.value = next;
+    menuVisible.value = true;
+    controlsVisible.value = true;
+  }
+
+  Future<void> toggleThinProgress() async {
+    thinProgressEnabled.value = !thinProgressEnabled.value;
+    await GStrorage.setting.put(
+      SettingBoxKey.tvPlayerThinProgressEnable,
+      thinProgressEnabled.value,
+    );
+    menuVisible.value = true;
+    controlsVisible.value = true;
+  }
+
+  void toggleMenu() {
+    menuVisible.value = !menuVisible.value;
+    if (menuVisible.value) {
+      menuIndex.value = 0;
+    }
+    controlsVisible.value = true;
+  }
+
+  void closeMenu() {
+    menuVisible.value = false;
+  }
+
+  void moveMenuSelection(int delta) {
+    const int itemCount = 5;
+    menuIndex.value = (menuIndex.value + delta + itemCount) % itemCount;
+  }
+
+  Future<void> activateMenuSelection({
+    required void Function() exitPlayer,
+  }) async {
+    switch (menuIndex.value) {
+      case 0:
+        await toggleDanmaku();
+        break;
+      case 1:
+        await cyclePlaybackSpeed();
+        break;
+      case 2:
+        await toggleThinProgress();
+        break;
+      case 3:
+        closeMenu();
+        break;
+      case 4:
+        exitPlayer();
+        break;
+    }
   }
 
   Future<void> seekRelative(int seconds) async {

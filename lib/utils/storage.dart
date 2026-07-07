@@ -118,6 +118,7 @@ class SettingBoxKey {
       autoUpdate = 'autoUpdate',
       tvAutoFullscreenEnable = 'tvAutoFullscreenEnable',
       tvAutoFullscreenDelay = 'tvAutoFullscreenDelay',
+      tvPlayerThinProgressEnable = 'tvPlayerThinProgressEnable',
       tvAntiAddictionEnabled = 'tvAntiAddictionEnabled',
       tvAntiAddictionSessionLimitMinutes = 'tvAntiAddictionSessionLimitMinutes',
       tvAntiAddictionRestMinutes = 'tvAntiAddictionRestMinutes',

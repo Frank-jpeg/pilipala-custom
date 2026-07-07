@@ -78,16 +78,24 @@ class _PlDanmakuState extends State<PlDanmaku> {
 
   // 播放器状态监听
   void playerListener(PlayerStatus? status) {
+    final DanmakuController? controller = _controller;
+    if (controller == null) {
+      return;
+    }
     if (status == PlayerStatus.paused) {
-      _controller!.pause();
+      controller.pause();
     }
     if (status == PlayerStatus.playing) {
-      _controller!.onResume();
+      controller.onResume();
     }
   }
 
   void videoPositionListen(Duration position) {
     if (!playerController.isOpenDanmu.value) {
+      return;
+    }
+    final DanmakuController? controller = _controller;
+    if (controller == null) {
       return;
     }
     int currentPosition = position.inMilliseconds;
@@ -106,7 +114,7 @@ class _PlDanmakuState extends State<PlDanmaku> {
           ? DmUtils.decimalToColor(16777215)
           : null;
 
-      _controller!.addItems(currentDanmakuList
+      controller.addItems(currentDanmakuList
           .map((e) => DanmakuItem(
                 e.content,
                 color: defaultColor ?? DmUtils.decimalToColor(e.color),
@@ -120,6 +128,7 @@ class _PlDanmakuState extends State<PlDanmaku> {
   @override
   void dispose() {
     playerController.removePositionListener(videoPositionListen);
+    playerController.removeStatusLister(playerListener);
     super.dispose();
   }
 

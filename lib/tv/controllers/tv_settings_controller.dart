@@ -8,6 +8,7 @@ import 'package:pilipala/utils/storage.dart';
 class TvSettingsController extends GetxController {
   final RxBool autoFullscreenEnabled = true.obs;
   final RxInt autoFullscreenDelaySeconds = 15.obs;
+  final RxBool danmakuEnabled = true.obs;
   late final TvAntiAddictionController antiAddiction;
 
   static const int minDelaySeconds = 5;
@@ -33,6 +34,10 @@ class TvSettingsController extends GetxController {
     ) as int;
     autoFullscreenDelaySeconds.value =
         delay.clamp(minDelaySeconds, maxDelaySeconds);
+    danmakuEnabled.value = GStrorage.setting.get(
+      SettingBoxKey.enableShowDanmaku,
+      defaultValue: true,
+    ) as bool;
   }
 
   Future<void> toggleAutoFullscreen() async {
@@ -50,6 +55,14 @@ class TvSettingsController extends GetxController {
 
   Future<void> increaseDelay() async {
     await _setDelay(autoFullscreenDelaySeconds.value + delayStepSeconds);
+  }
+
+  Future<void> toggleDanmaku() async {
+    danmakuEnabled.value = !danmakuEnabled.value;
+    await GStrorage.setting.put(
+      SettingBoxKey.enableShowDanmaku,
+      danmakuEnabled.value,
+    );
   }
 
   String get dailyLimitLabel {
