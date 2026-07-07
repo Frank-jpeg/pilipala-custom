@@ -82,6 +82,7 @@ class SearchVideoItemModel {
   SearchVideoItemModel.fromJson(Map<String, dynamic> json) {
     type = json['type'];
     id = json['id'];
+    cid = json['cid'];
     arcurl = json['arcurl'];
     aid = json['aid'];
     bvid = json['bvid'];

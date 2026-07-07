@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:hive/hive.dart';
+import 'package:dio/dio.dart';
 import 'package:pilipala/models/search/all.dart';
 import 'package:pilipala/utils/wbi_sign.dart';
 import '../models/bangumi/info.dart';
@@ -7,8 +9,11 @@ import '../models/common/search_type.dart';
 import '../models/search/hot.dart';
 import '../models/search/result.dart';
 import '../models/search/suggest.dart';
+import '../utils/id_utils.dart';
 import '../utils/storage.dart';
 import 'index.dart';
+import 'login.dart';
+import 'user.dart';
 
 class SearchHttp {
   static Box setting = GStrorage.setting;
@@ -90,7 +95,8 @@ class SearchHttp {
       if (duration != null) 'duration': duration,
       if (tids != null && tids != -1) 'tids': tids,
     };
-    var res = await Request().get(Api.searchByType, data: reqData);
+    final Map params = await WbiSign().makSign(reqData);
+    var res = await Request().get(Api.searchByType, data: params);
     if (res.data is! Map) {
       return {
         'status': false,
@@ -155,6 +161,238 @@ class SearchHttp {
       };
     }
   }
+
+  static Future<Map<String, dynamic>> tvSearchVideo({
+    required String keyword,
+    int page = 1,
+  }) async {
+    if (keyword.trim().isEmpty) {
+      return {
+        'status': true,
+        'data': SearchVideoModel(list: <SearchVideoItemModel>[]),
+      };
+    }
+    final String accessKey = UserHttp.cachedAccessKey();
+    try {
+      final Map<String, dynamic> params =
+          await LoginHttp.signedTvParams(<String, dynamic>{
+        'keyword': keyword.trim(),
+        'page': page,
+        'category': '0',
+        'search_type': 'tv_ugc',
+        'order': 'totalrank',
+        'search_trace': _searchTrace(),
+        if (accessKey.isNotEmpty) 'access_key': accessKey,
+        'sug_index': 0,
+        'term': '',
+        'keyword_from': '',
+        'ugc_order': 'default',
+        'pagesize': 20,
+      });
+      final Response<dynamic> res = await Request.dio.get(
+        '${Api.tvSearchV2}?${LoginHttp.tvEncodedQuery(params)}',
+        options: Options(
+          headers: <String, dynamic>{'user-agent': LoginHttp.tvUserAgent},
+        ),
+      );
+      final dynamic body = res.data;
+      if (body is Map && body['code'] == 0 && body['data'] is Map) {
+        final List<SearchVideoItemModel> items =
+            _parseTvSearchItems(Map<dynamic, dynamic>.from(body['data'] as Map));
+        return {
+          'status': true,
+          'data': SearchVideoModel(list: items),
+        };
+      }
+      final String msg = body is Map
+          ? body['message']?.toString() ?? 'TV 搜索失败'
+          : 'TV 搜索失败: ${body ?? res.statusCode}';
+      return {
+        'status': false,
+        'data': SearchVideoModel(list: <SearchVideoItemModel>[]),
+        'msg': msg,
+        'code': body is Map ? body['code'] : res.statusCode,
+      };
+    } catch (e) {
+      return {
+        'status': false,
+        'data': SearchVideoModel(list: <SearchVideoItemModel>[]),
+        'msg': 'TV 搜索失败: $e',
+      };
+    }
+  }
+
+  static String _searchTrace() {
+    final Random random = Random();
+    final int now = DateTime.now().millisecondsSinceEpoch;
+    final int tail = random.nextInt(0x7fffffff);
+    return '$now$tail';
+  }
+
+  static List<SearchVideoItemModel> _parseTvSearchItems(
+    Map<dynamic, dynamic> data,
+  ) {
+    final List<Map<String, dynamic>> rawItems = <Map<String, dynamic>>[];
+    void addItems(dynamic value) {
+      if (value is! List) {
+        return;
+      }
+      for (final dynamic item in value) {
+        if (item is Map) {
+          rawItems.add(Map<String, dynamic>.from(item));
+        }
+      }
+    }
+
+    addItems(data['ugc']);
+    final dynamic resultAll = data['resultall'];
+    if (resultAll is Map) {
+      addItems(resultAll['tvugc']);
+    }
+    final dynamic resultV2 = data['result_v2'];
+    if (resultV2 is List) {
+      for (final dynamic module in resultV2) {
+        if (module is Map) {
+          addItems(module['list']);
+        }
+      }
+    }
+
+    final List<SearchVideoItemModel> items = <SearchVideoItemModel>[];
+    final Set<String> seen = <String>{};
+    for (final Map<String, dynamic> raw in rawItems) {
+      final Map<String, dynamic> mapped = _mapTvSearchItem(raw);
+      final int aid = UserHttp.tvInt(mapped['aid'] ?? mapped['id']);
+      final String bvid = (mapped['bvid']?.toString() ?? '').isNotEmpty
+          ? mapped['bvid'].toString()
+          : aid > 0
+              ? IdUtils.av2bv(aid)
+              : '';
+      final String key = bvid.isNotEmpty ? bvid : aid.toString();
+      if ((bvid.isEmpty && aid <= 0) || seen.contains(key)) {
+        continue;
+      }
+      seen.add(key);
+      items.add(SearchVideoItemModel.fromJson(mapped));
+    }
+    return items;
+  }
+
+  static Map<String, dynamic> _mapTvSearchItem(Map<String, dynamic> raw) {
+    final Map<String, dynamic> upper = raw['upper'] is Map
+        ? Map<String, dynamic>.from(raw['upper'] as Map)
+        : <String, dynamic>{};
+    final Map<String, dynamic> owner = raw['owner'] is Map
+        ? Map<String, dynamic>.from(raw['owner'] as Map)
+        : <String, dynamic>{};
+    final Map<String, dynamic> uploader = raw['uploader'] is Map
+        ? Map<String, dynamic>.from(raw['uploader'] as Map)
+        : <String, dynamic>{};
+    final Map<String, dynamic> ugcExt = raw['ugc_ext'] is Map
+        ? Map<String, dynamic>.from(raw['ugc_ext'] as Map)
+        : <String, dynamic>{};
+    final Map<String, dynamic> playerArgs = raw['player_args'] is Map
+        ? Map<String, dynamic>.from(raw['player_args'] as Map)
+        : <String, dynamic>{};
+    final Map<String, dynamic> autoPlay = raw['auto_play'] is Map
+        ? Map<String, dynamic>.from(raw['auto_play'] as Map)
+        : <String, dynamic>{};
+    final List<dynamic> cidList =
+        autoPlay['cid_list'] is List ? autoPlay['cid_list'] as List : const [];
+    final Map<String, dynamic> firstCid =
+        cidList.isNotEmpty && cidList.first is Map
+            ? Map<String, dynamic>.from(cidList.first as Map)
+            : <String, dynamic>{};
+    final List<dynamic> playList =
+        raw['play_list'] is List ? raw['play_list'] as List : const <dynamic>[];
+    final Map<String, dynamic> firstPlay =
+        playList.isNotEmpty && playList.first is Map
+            ? Map<String, dynamic>.from(playList.first as Map)
+            : <String, dynamic>{};
+
+    final int aid = UserHttp.tvInt(
+      raw['aid'] ??
+          raw['id'] ??
+          raw['card_id'] ??
+          raw['param'] ??
+          playerArgs['aid'] ??
+          firstCid['aid'] ??
+          ugcExt['aid'],
+    );
+    final String rawBvid = _string(
+      raw['bvid'] ?? raw['bv_id'] ?? raw['bv'] ?? ugcExt['bvid'],
+    );
+    final String bvid = rawBvid.isNotEmpty
+        ? rawBvid
+        : aid > 0
+            ? IdUtils.av2bv(aid)
+            : '';
+    final String cover = _string(
+      raw['cover'] ??
+          raw['horizonal_cover'] ??
+          raw['horizontal_cover'] ??
+          raw['pic'] ??
+          firstPlay['cover'] ??
+          ugcExt['cover'],
+    );
+    return <String, dynamic>{
+      'type': 'video',
+      'id': aid,
+      'aid': aid,
+      'bvid': bvid,
+      'cid': UserHttp.tvInt(
+        raw['cid'] ??
+            playerArgs['cid'] ??
+            firstCid['cid'] ??
+            firstPlay['cid'] ??
+            ugcExt['cid'] ??
+            ugcExt['first_cid'],
+      ),
+      'mid': UserHttp.tvInt(
+        raw['mid'] ?? upper['mid'] ?? owner['mid'] ?? uploader['mid'],
+      ),
+      'title': _string(raw['title'] ??
+          raw['hover_title'] ??
+          raw['name'] ??
+          firstCid['title'] ??
+          ugcExt['title']),
+      'description': _string(
+        raw['description'] ??
+            raw['desc'] ??
+            raw['subtitle'] ??
+            raw['hover_subtitle'] ??
+            raw['index_show'] ??
+            raw['archive_view'] ??
+            ugcExt['desc'],
+      ),
+      'pic': cover.startsWith('//') ? 'https:$cover' : cover,
+      'duration': raw['duration'] ??
+          firstCid['duration'] ??
+          firstPlay['duration'] ??
+          ugcExt['duration'],
+      'author': _string(
+        raw['uname'] ??
+            raw['author'] ??
+            upper['name'] ??
+            upper['uname'] ??
+            owner['name'] ??
+            owner['uname'] ??
+            uploader['name'] ??
+            uploader['uname'] ??
+            uploader['up_name'] ??
+            ugcExt['up_name'],
+      ),
+      'upic': _string(raw['upAvatar'] ?? raw['img'] ?? owner['face']),
+      'play': UserHttp.tvInt(raw['play'] ?? raw['archive_view']),
+      'danmaku': UserHttp.tvInt(raw['danmaku']),
+      'favorite': UserHttp.tvInt(raw['favorite']),
+      'review': UserHttp.tvInt(raw['review']),
+      'like': UserHttp.tvInt(raw['like']),
+      'available': true,
+    };
+  }
+
+  static String _string(dynamic value) => value?.toString() ?? '';
 
   static Future<int> ab2c({int? aid, String? bvid}) async {
     Map<String, dynamic> data = {};

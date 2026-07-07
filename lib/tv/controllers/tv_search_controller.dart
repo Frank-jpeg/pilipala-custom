@@ -43,8 +43,7 @@ class TvSearchController extends GetxController {
     loadingSearch.value = true;
     error.value = null;
     try {
-      final dynamic res = await SearchHttp.searchByType(
-        searchType: SearchType.video,
+      final dynamic tvRes = await SearchHttp.tvSearchVideo(
         keyword: value,
         page: 1,
       );
@@ -52,21 +51,43 @@ class TvSearchController extends GetxController {
         // 已有更新的搜索发出，丢弃这次过期结果。
         return;
       }
-      if (res is! Map) {
+      dynamic effectiveRes = tvRes;
+      if (tvRes is Map && tvRes['status'] == true) {
+        final dynamic tvData = tvRes['data'];
+        if (tvData is SearchVideoModel &&
+            (tvData.list ?? <SearchVideoItemModel>[]).isEmpty) {
+          effectiveRes = await SearchHttp.searchByType(
+            searchType: SearchType.video,
+            keyword: value,
+            page: 1,
+          );
+        }
+      } else {
+        effectiveRes = await SearchHttp.searchByType(
+          searchType: SearchType.video,
+          keyword: value,
+          page: 1,
+        );
+      }
+      if (seq != _searchSeq) {
+        // 已有更新的搜索发出，丢弃这次过期结果。
+        return;
+      }
+      if (effectiveRes is! Map) {
         results.clear();
         error.value = '搜索失败: 返回数据异常';
         SmartDialog.showToast(error.value!);
         return;
       }
-      if (res['status'] == true) {
-        final dynamic data = res['data'];
+      if (effectiveRes['status'] == true) {
+        final dynamic data = effectiveRes['data'];
         if (data is SearchVideoModel) {
           results.value = data.list ?? <SearchVideoItemModel>[];
         } else {
           results.clear();
         }
       } else {
-        error.value = res['msg']?.toString() ?? '搜索失败';
+        error.value = effectiveRes['msg']?.toString() ?? '搜索失败';
         SmartDialog.showToast(error.value!);
       }
     } catch (e) {
