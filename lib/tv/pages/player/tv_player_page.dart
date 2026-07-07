@@ -209,7 +209,7 @@ class TvPlayerPage extends StatelessWidget {
   }
 }
 
-class _TvPlayerMenu extends StatelessWidget {
+class _TvPlayerMenu extends StatefulWidget {
   const _TvPlayerMenu({
     required this.controller,
     required this.onExit,
@@ -219,13 +219,53 @@ class _TvPlayerMenu extends StatelessWidget {
   final VoidCallback onExit;
 
   @override
+  State<_TvPlayerMenu> createState() => _TvPlayerMenuState();
+}
+
+class _TvPlayerMenuState extends State<_TvPlayerMenu> {
+  final ScrollController _scrollController = ScrollController();
+  Worker? _menuIndexWorker;
+
+  @override
+  void initState() {
+    super.initState();
+    _menuIndexWorker = ever<int>(
+      widget.controller.menuIndex,
+      (_) => _scrollToCurrentItem(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _menuIndexWorker?.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToCurrentItem() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) {
+        return;
+      }
+      final double target = (widget.controller.menuIndex.value * 70.0) - 80.0;
+      final double max = _scrollController.position.maxScrollExtent;
+      _scrollController.animateTo(
+        target.clamp(0.0, max),
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final TvPlayerController controller = widget.controller;
     return Positioned.fill(
       child: Container(
         color: Colors.black.withOpacity(0.34),
         alignment: Alignment.centerRight,
         child: Container(
-          width: 360,
+          width: 430,
           margin: const EdgeInsets.only(right: 44),
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
@@ -241,7 +281,7 @@ class _TvPlayerMenu extends StatelessWidget {
             ],
           ),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize: MainAxisSize.max,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               const Text(
@@ -253,60 +293,194 @@ class _TvPlayerMenu extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-              Obx(
-                () => _TvPlayerMenuItem(
-                  focused: controller.menuIndex.value == 0,
-                  icon: controller.player.isOpenDanmu.value
-                      ? Icons.subtitles_rounded
-                      : Icons.subtitles_off_rounded,
-                  label: controller.player.isOpenDanmu.value ? '弹幕：开' : '弹幕：关',
-                  onPressed: controller.toggleDanmaku,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Obx(
-                () => _TvPlayerMenuItem(
-                  focused: controller.menuIndex.value == 1,
-                  icon: Icons.speed_rounded,
-                  label:
-                      '倍速：${controller.playbackSpeed.value.toStringAsFixed(controller.playbackSpeed.value % 1 == 0 ? 0 : 2)}x',
-                  onPressed: controller.cyclePlaybackSpeed,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Obx(
-                () => _TvPlayerMenuItem(
-                  focused: controller.menuIndex.value == 2,
-                  icon: controller.thinProgressEnabled.value
-                      ? Icons.linear_scale_rounded
-                      : Icons.horizontal_rule_rounded,
-                  label: controller.thinProgressEnabled.value
-                      ? '细进度条：开'
-                      : '细进度条：关',
-                  onPressed: controller.toggleThinProgress,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Obx(
-                () => _TvPlayerMenuItem(
-                  focused: controller.menuIndex.value == 3,
-                  icon: Icons.close_rounded,
-                  label: '关闭菜单',
-                  onPressed: controller.closeMenu,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Obx(
-                () => _TvPlayerMenuItem(
-                  focused: controller.menuIndex.value == 4,
-                  icon: Icons.exit_to_app_rounded,
-                  label: '退出播放',
-                  onPressed: onExit,
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      Obx(
+                        () => _TvPlayerMenuItem(
+                          focused: controller.menuIndex.value == 0,
+                          icon: controller.player.isOpenDanmu.value
+                              ? Icons.subtitles_rounded
+                              : Icons.subtitles_off_rounded,
+                          label: controller.player.isOpenDanmu.value
+                              ? '弹幕：开'
+                              : '弹幕：关',
+                          onPressed: controller.toggleDanmaku,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Obx(
+                        () => _TvPlayerMenuItem(
+                          focused: controller.menuIndex.value == 1,
+                          icon: Icons.speed_rounded,
+                          label:
+                              '倍速：${controller.playbackSpeed.value.toStringAsFixed(controller.playbackSpeed.value % 1 == 0 ? 0 : 2)}x',
+                          onPressed: controller.cyclePlaybackSpeed,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Obx(
+                        () => _TvPlayerMenuItem(
+                          focused: controller.menuIndex.value == 2,
+                          icon: controller.thinProgressEnabled.value
+                              ? Icons.linear_scale_rounded
+                              : Icons.horizontal_rule_rounded,
+                          label: controller.thinProgressEnabled.value
+                              ? '细进度条：开'
+                              : '细进度条：关',
+                          onPressed: controller.toggleThinProgress,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      const _TvPlayerMenuSectionTitle(label: '弹幕设置'),
+                      const SizedBox(height: 10),
+                      Obx(
+                        () => _TvPlayerMenuItem(
+                          focused: controller.menuIndex.value == 3,
+                          icon: Icons.crop_free_rounded,
+                          label:
+                              '显示区域：${_danmakuLabel(controller, controller.danmakuAreaLabel)}',
+                          onPressed: controller.cycleDanmakuArea,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Obx(
+                        () => _TvPlayerMenuItem(
+                          focused: controller.menuIndex.value == 4,
+                          icon: Icons.timer_rounded,
+                          label:
+                              '弹幕速度：${_danmakuLabel(controller, controller.danmakuDurationLabel)}',
+                          onPressed: controller.cycleDanmakuDuration,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Obx(
+                        () => _TvPlayerMenuItem(
+                          focused: controller.menuIndex.value == 5,
+                          icon: Icons.format_size_rounded,
+                          label:
+                              '字体大小：${_danmakuLabel(controller, controller.danmakuFontScaleLabel)}',
+                          onPressed: controller.cycleDanmakuFontScale,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Obx(
+                        () => _TvPlayerMenuItem(
+                          focused: controller.menuIndex.value == 6,
+                          icon: Icons.opacity_rounded,
+                          label:
+                              '不透明度：${_danmakuLabel(controller, controller.danmakuOpacityLabel)}',
+                          onPressed: controller.cycleDanmakuOpacity,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Obx(
+                        () => _TvPlayerMenuItem(
+                          focused: controller.menuIndex.value == 7,
+                          icon: Icons.border_color_rounded,
+                          label:
+                              '描边粗细：${_danmakuLabel(controller, controller.danmakuStrokeLabel)}',
+                          onPressed: controller.cycleDanmakuStroke,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      const _TvPlayerMenuSectionTitle(label: '按类型屏蔽'),
+                      const SizedBox(height: 10),
+                      Obx(
+                        () => _TvPlayerMenuItem(
+                          focused: controller.menuIndex.value == 8,
+                          icon: Icons.vertical_align_top_rounded,
+                          label: _danmakuBlockLabel(controller, 5, '屏蔽顶部'),
+                          onPressed: () => controller.toggleDanmakuBlock(5),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Obx(
+                        () => _TvPlayerMenuItem(
+                          focused: controller.menuIndex.value == 9,
+                          icon: Icons.subject_rounded,
+                          label: _danmakuBlockLabel(controller, 2, '屏蔽滚动'),
+                          onPressed: () => controller.toggleDanmakuBlock(2),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Obx(
+                        () => _TvPlayerMenuItem(
+                          focused: controller.menuIndex.value == 10,
+                          icon: Icons.vertical_align_bottom_rounded,
+                          label: _danmakuBlockLabel(controller, 4, '屏蔽底部'),
+                          onPressed: () => controller.toggleDanmakuBlock(4),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Obx(
+                        () => _TvPlayerMenuItem(
+                          focused: controller.menuIndex.value == 11,
+                          icon: Icons.palette_rounded,
+                          label: _danmakuBlockLabel(controller, 6, '屏蔽彩色'),
+                          onPressed: () => controller.toggleDanmakuBlock(6),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Obx(
+                        () => _TvPlayerMenuItem(
+                          focused: controller.menuIndex.value == 12,
+                          icon: Icons.close_rounded,
+                          label: '关闭菜单',
+                          onPressed: controller.closeMenu,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Obx(
+                        () => _TvPlayerMenuItem(
+                          focused: controller.menuIndex.value == 13,
+                          icon: Icons.exit_to_app_rounded,
+                          label: '退出播放',
+                          onPressed: widget.onExit,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+String _danmakuBlockLabel(
+  TvPlayerController controller,
+  int type,
+  String label,
+) {
+  controller.danmakuOptionVersion.value;
+  return controller.isDanmakuBlockEnabled(type) ? '$label：开' : '$label：关';
+}
+
+String _danmakuLabel(TvPlayerController controller, String value) {
+  controller.danmakuOptionVersion.value;
+  return value;
+}
+
+class _TvPlayerMenuSectionTitle extends StatelessWidget {
+  const _TvPlayerMenuSectionTitle({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: const TextStyle(
+        color: Colors.white70,
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
       ),
     );
   }

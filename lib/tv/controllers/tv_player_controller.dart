@@ -13,11 +13,14 @@ import 'package:pilipala/tv/models/tv_video_card_data.dart';
 import 'package:pilipala/utils/storage.dart';
 
 class TvPlayerController extends GetxController {
+  static const int playerMenuItemCount = 14;
+
   final PlPlayerController player = PlPlayerController(videoType: 'archive');
   final RxBool loading = true.obs;
   final RxBool controlsVisible = true.obs;
   final RxBool menuVisible = false.obs;
   final RxInt menuIndex = 0.obs;
+  final RxInt danmakuOptionVersion = 0.obs;
   final RxBool thinProgressEnabled = true.obs;
   final RxDouble volume = 1.0.obs;
   final RxDouble playbackSpeed = 1.0.obs;
@@ -210,6 +213,132 @@ class TvPlayerController extends GetxController {
     controlsVisible.value = true;
   }
 
+  String get danmakuAreaLabel {
+    final double area = player.showArea;
+    if ((area - 0.25).abs() < 0.01) {
+      return '1/4屏';
+    }
+    if ((area - 0.5).abs() < 0.01) {
+      return '半屏';
+    }
+    if ((area - 0.75).abs() < 0.01) {
+      return '3/4屏';
+    }
+    return '满屏';
+  }
+
+  String get danmakuDurationLabel =>
+      '${player.danmakuDurationVal.toStringAsFixed(0)}秒';
+
+  String get danmakuFontScaleLabel => '${(player.fontSizeVal * 100).round()}%';
+
+  String get danmakuOpacityLabel => '${(player.opacityVal * 100).round()}%';
+
+  String get danmakuStrokeLabel {
+    final double stroke = player.strokeWidth;
+    return stroke % 1 == 0
+        ? stroke.toStringAsFixed(0)
+        : stroke.toStringAsFixed(1);
+  }
+
+  bool isDanmakuBlockEnabled(int type) => player.blockTypes.contains(type);
+
+  Future<void> cycleDanmakuArea() async {
+    const List<double> areas = <double>[0.25, 0.5, 0.75, 1.0];
+    final int index = _nearestDoubleIndex(areas, player.showArea);
+    player.showArea = areas[(index + 1) % areas.length];
+    _applyDanmakuOption();
+    await _cacheDanmakuOption();
+  }
+
+  Future<void> cycleDanmakuDuration() async {
+    const List<double> durations = <double>[2, 4, 6, 8, 12, 16];
+    final int index = _nearestDoubleIndex(durations, player.danmakuDurationVal);
+    player.danmakuDurationVal = durations[(index + 1) % durations.length];
+    _applyDanmakuOption();
+    await _cacheDanmakuOption();
+  }
+
+  Future<void> cycleDanmakuFontScale() async {
+    const List<double> scales = <double>[0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5];
+    final int index = _nearestDoubleIndex(scales, player.fontSizeVal);
+    player.fontSizeVal = scales[(index + 1) % scales.length];
+    _applyDanmakuOption();
+    await _cacheDanmakuOption();
+  }
+
+  Future<void> cycleDanmakuOpacity() async {
+    const List<double> opacities = <double>[0.25, 0.5, 0.75, 1.0];
+    final int index = _nearestDoubleIndex(opacities, player.opacityVal);
+    player.opacityVal = opacities[(index + 1) % opacities.length];
+    _applyDanmakuOption();
+    await _cacheDanmakuOption();
+  }
+
+  Future<void> cycleDanmakuStroke() async {
+    const List<double> strokes = <double>[0, 0.5, 1, 1.5, 2, 3];
+    final int index = _nearestDoubleIndex(strokes, player.strokeWidth);
+    player.strokeWidth = strokes[(index + 1) % strokes.length];
+    _applyDanmakuOption();
+    await _cacheDanmakuOption();
+  }
+
+  Future<void> toggleDanmakuBlock(int type) async {
+    final List<dynamic> next = List<dynamic>.from(player.blockTypes);
+    if (next.contains(type)) {
+      next.remove(type);
+    } else {
+      next.add(type);
+    }
+    player.blockTypes = next;
+    _applyDanmakuOption();
+    await _cacheDanmakuOption();
+  }
+
+  int _nearestDoubleIndex(List<double> values, double current) {
+    int bestIndex = 0;
+    double bestDistance = double.infinity;
+    for (int i = 0; i < values.length; i++) {
+      final double distance = (values[i] - current).abs();
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestIndex = i;
+      }
+    }
+    return bestIndex;
+  }
+
+  void _applyDanmakuOption() {
+    try {
+      final option = player.danmakuController?.option;
+      if (option == null) {
+        return;
+      }
+      player.danmakuController?.updateOption(
+        option.copyWith(
+          area: player.showArea,
+          opacity: player.opacityVal,
+          strokeWidth: player.strokeWidth,
+          fontSize: (15 * player.fontSizeVal).toDouble(),
+          duration: player.danmakuDurationVal / player.playbackSpeed,
+          hideTop: player.blockTypes.contains(5),
+          hideScroll: player.blockTypes.contains(2),
+          hideBottom: player.blockTypes.contains(4),
+        ),
+      );
+    } catch (_) {}
+    danmakuOptionVersion.value++;
+    menuVisible.value = true;
+    controlsVisible.value = true;
+  }
+
+  Future<void> _cacheDanmakuOption() async {
+    await player.cacheDanmakuOption();
+    danmakuOptionVersion.value++;
+    menuVisible.value = true;
+    controlsVisible.value = true;
+  }
+
   Future<void> cyclePlaybackSpeed() async {
     const List<double> speeds = <double>[1.0, 1.25, 1.5, 2.0];
     final double current = player.playbackSpeed;
@@ -246,8 +375,8 @@ class TvPlayerController extends GetxController {
   }
 
   void moveMenuSelection(int delta) {
-    const int itemCount = 5;
-    menuIndex.value = (menuIndex.value + delta + itemCount) % itemCount;
+    menuIndex.value =
+        (menuIndex.value + delta + playerMenuItemCount) % playerMenuItemCount;
   }
 
   Future<void> activateMenuSelection({
@@ -264,9 +393,36 @@ class TvPlayerController extends GetxController {
         await toggleThinProgress();
         break;
       case 3:
-        closeMenu();
+        await cycleDanmakuArea();
         break;
       case 4:
+        await cycleDanmakuDuration();
+        break;
+      case 5:
+        await cycleDanmakuFontScale();
+        break;
+      case 6:
+        await cycleDanmakuOpacity();
+        break;
+      case 7:
+        await cycleDanmakuStroke();
+        break;
+      case 8:
+        await toggleDanmakuBlock(5);
+        break;
+      case 9:
+        await toggleDanmakuBlock(2);
+        break;
+      case 10:
+        await toggleDanmakuBlock(4);
+        break;
+      case 11:
+        await toggleDanmakuBlock(6);
+        break;
+      case 12:
+        closeMenu();
+        break;
+      case 13:
         exitPlayer();
         break;
     }
