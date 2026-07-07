@@ -257,7 +257,7 @@ class _TvShellPageState extends State<TvShellPage> {
     final bool? exit = await Get.dialog<bool>(
       AlertDialog(
         backgroundColor: const Color(0xFF10182A),
-        title: const Text('退出 PiliPala TV？',
+        title: const Text('退出 云视听pilipala？',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
         content: const Text(
           '再确认一次，避免遥控器误按直接退到桌面。',
