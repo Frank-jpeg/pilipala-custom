@@ -52,7 +52,7 @@ class _TvLeftNavState extends State<TvLeftNav> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           const Text(
-            'PiliPala TV',
+            '云视听pilipala',
             style: TextStyle(
               color: Colors.white,
               fontSize: 22,

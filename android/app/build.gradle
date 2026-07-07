@@ -77,7 +77,7 @@ android {
         tv {
             dimension "device"
             applicationId "com.guozhigq.pilipala.custom.tv"
-            resValue "string", "app_name", "PiliPala TV"
+            resValue "string", "app_name", "云视听pilipala"
         }
     }
 
