@@ -15,22 +15,23 @@ It is currently a usable MVP for manual TV testing, not a published in-app updat
 - CI artifact name: `pilipala-custom-android-tv-arm64`
 - CI APK filename pattern: `pilipala-custom-tv-<version>-<sha>-arm64-v8a.apk`
 
-The TV app keeps the original left navigation shell and adds home-level quick actions/tabs on the right:
+The TV app uses a single left navigation shell for both home channels and routed pages:
 
-- left navigation items: `推荐` / `搜索` / `媒体库` / `登录` or `我的` / `设置`
-- home quick actions: `搜索` / `历史` / `收藏` / `稍后再看` / `登录` or `我的` / `设置`
-- home tabs: `推荐` / `历史` / `收藏` / `稍后再看`
-- `推荐` / `历史` / `收藏` / `稍后再看` share the same home stage on the right side
+- left navigation items: `推荐` / `历史` / `收藏` / `稍后再看` / `搜索` / `媒体库` / `登录` or `我的` / `设置`
+- `推荐` / `历史` / `收藏` / `稍后再看` are home channels and share the same right-side stage
 - `搜索` / `媒体库` / `登录` or `我的` / `设置` remain routed pages
+- the right side no longer has a second quick-action row or channel tab row
 - `推荐` section uses the immersive recommendation stage
 - selected recommendation now starts an inline homepage video preview after focus settles, with artwork fallback if preview playback fails
 - DPAD up/down switches recommendations
+- the recommendation list scrolls with the selected item and appends more recommendations near the end of the loaded list
 - OK enters full-screen playback and resumes from the current homepage preview position when available
 - right opens details
 - left returns focus to the left navigation
 - idle on a recommendation can auto-enter full-screen playback and resumes from the current homepage preview position when available
 - `历史` / `收藏` / `稍后再看` reuse the same stage layout but do not auto-preview or auto-enter full-screen
 - `历史` / `收藏` / `稍后再看` require login and show an inline login prompt when opened without an account session
+- pressing Back from the TV shell shows an exit confirmation dialog before closing the app
 - from recommendation playback, DPAD up/down switches previous/next recommendation
 - `设置` can enable/disable idle auto-fullscreen and change the delay from 5 to 60 seconds
 - `设置` can enable TV anti-addiction controls with a local 4-digit parent PIN
@@ -144,11 +145,11 @@ Use the latest `tv` branch artifact from GitHub Actions or the local arm64 relea
 
 1. Install the TV APK on a real Android TV or TV box.
 2. Confirm the app appears in the TV launcher.
-3. Open the app and confirm the left navigation shell loads with `推荐 / 搜索 / 媒体库 / 登录|我的 / 设置`.
+3. Open the app and confirm the left navigation shell loads with `推荐 / 历史 / 收藏 / 稍后再看 / 搜索 / 媒体库 / 登录|我的 / 设置`.
 4. Enter `推荐` and confirm the immersive recommendation stage loads.
-5. Confirm the home top quick actions and tabs are visible and DPAD-focusable.
+5. Confirm there is no second top quick-action row or channel tab row on the right side.
 6. Confirm the focused recommendation starts autoplaying on the home page after a short delay, with artwork fallback if preview playback fails.
-7. Use DPAD up/down to switch recommendations and confirm the preview switches with the selected item.
+7. Use DPAD up/down to switch recommendations and confirm the visible list scrolls with the selected item, the preview switches with the selected item, and more recommendations append near the end.
 8. Wait for the configured idle delay and confirm it enters full-screen playback.
 9. Confirm the idle auto-fullscreen playback continues from the homepage preview position instead of restarting from 0 seconds.
 10. Press OK on a recommendation and confirm full-screen playback opens from the current homepage preview position when preview is already playing.
@@ -156,7 +157,7 @@ Use the latest `tv` branch artifact from GitHub Actions or the local arm64 relea
 12. Press Back and confirm it returns to the correct previous page:
    - recommendation playback -> recommendation stage
    - detail playback -> detail page
-13. Enter `历史` / `收藏` / `稍后再看` from the top quick actions or home tabs and verify:
+13. Enter `历史` / `收藏` / `稍后再看` from the left navigation and verify:
    - not logged in: the right side shows the inline login prompt without crashing
    - logged in after phone login: lists load from TV `access_key` APIs, DPAD up/down switches items, OK plays, right opens detail, left returns to the left nav
 14. Enter `登录` and test all login paths:

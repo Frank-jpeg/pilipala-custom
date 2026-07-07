@@ -12,17 +12,6 @@ import 'package:pilipala/tv/tv_routes.dart';
 import 'package:pilipala/tv/utils/tv_formatters.dart';
 import 'package:pilipala/tv/widgets/tv_left_nav.dart';
 
-enum _HomeFocusArea { quickActions, tabs, content }
-
-enum _QuickActionType {
-  search,
-  history,
-  favorite,
-  watchLater,
-  account,
-  settings
-}
-
 class TvShellPage extends StatefulWidget {
   const TvShellPage({super.key});
 
@@ -31,7 +20,7 @@ class TvShellPage extends StatefulWidget {
 }
 
 class _TvShellPageState extends State<TvShellPage> {
-  static const int _navItemCount = 5;
+  static const int _navItemCount = 8;
 
   final TvHomeController _controller = Get.put(TvHomeController());
   final FocusNode _homeFocusNode = FocusNode();
@@ -39,109 +28,131 @@ class _TvShellPageState extends State<TvShellPage> {
       List<FocusNode>.generate(_navItemCount, (_) => FocusNode());
 
   int _selectedNavIndex = 0;
-  int _quickActionIndex = 0;
-  int _tabIndex = 0;
-  _HomeFocusArea _focusArea = _HomeFocusArea.content;
   bool _homeFocused = true;
 
   @override
   Widget build(BuildContext context) {
     final TvSessionController session = Get.find<TvSessionController>();
-    return Scaffold(
-      backgroundColor: const Color(0xFF07101E),
-      body: Row(
-        children: <Widget>[
-          Obx(
-            () => TvLeftNav(
-              selectedIndex: _selectedNavIndex,
-              focusNodes: _navFocusNodes,
-              items: <TvNavItem>[
-                TvNavItem(
-                  label: '推荐',
-                  icon: Icons.home_outlined,
-                  onTap: () {
-                    setState(() {
-                      _selectedNavIndex = 0;
-                      _focusArea = _HomeFocusArea.content;
-                    });
-                    unawaited(_switchHomeTab(TvHomeTab.recommend));
-                  },
-                ),
-                TvNavItem(
-                  label: '搜索',
-                  icon: Icons.search,
-                  onTap: () => unawaited(
-                    _openNamed(TvRoutes.search, returnFocusIndex: 1),
-                  ),
-                ),
-                TvNavItem(
-                  label: '媒体库',
-                  icon: Icons.video_library_outlined,
-                  onTap: () => unawaited(
-                    _openNamed(TvRoutes.library, returnFocusIndex: 2),
-                  ),
-                ),
-                TvNavItem(
-                  label: session.isLogin.value ? '我的' : '登录',
-                  icon: Icons.account_circle_outlined,
-                  onTap: () => unawaited(
-                    _openNamed(TvRoutes.login, returnFocusIndex: 3),
-                  ),
-                ),
-                TvNavItem(
-                  label: '设置',
-                  icon: Icons.settings_outlined,
-                  onTap: () => unawaited(
-                    _openNamed(TvRoutes.settings, returnFocusIndex: 4),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: Focus(
-              focusNode: _homeFocusNode,
-              autofocus: true,
-              onFocusChange: (bool value) {
-                if (_homeFocused != value && mounted) {
-                  setState(() {
-                    _homeFocused = value;
-                  });
-                }
-              },
-              onKeyEvent: _handleHomeKey,
-              child: Obx(
-                () {
-                  // _HomeStage 在子 widget build 内读取 currentTab / 当前列表 / selectedIndex 等 Rx，
-                  // 这些读取不在本 Obx 闭包内。显式订阅它们：既避免 GetX “improper use” 抛错，
-                  // 也让首页在切换 Tab / 数据刷新 / 选中项变化时正确重建。
-                  _controller.currentVideos;
-                  _controller.selectedVideo;
-                  return _HomeStage(
-                    controller: _controller,
-                    focusArea: _homeFocused ? _focusArea : null,
-                    quickActionIndex: _quickActionIndex,
-                    tabIndex: _tabIndex,
-                    onQuickActionTap: _activateQuickAction,
-                    onTabTap: (TvHomeTab tab) {
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (bool didPop) {
+        if (!didPop) {
+          unawaited(_confirmExit());
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFF07101E),
+        body: Row(
+          children: <Widget>[
+            Obx(
+              () => TvLeftNav(
+                selectedIndex: _selectedNavIndex,
+                focusNodes: _navFocusNodes,
+                items: <TvNavItem>[
+                  TvNavItem(
+                    label: '推荐',
+                    icon: Icons.home_outlined,
+                    onTap: () {
                       setState(() {
-                        _focusArea = _HomeFocusArea.content;
+                        _selectedNavIndex = 0;
                       });
-                      unawaited(_switchHomeTab(tab));
+                      unawaited(_switchHomeTab(TvHomeTab.recommend));
                     },
-                    onSelectContent: (int index) {
+                  ),
+                  TvNavItem(
+                    label: '历史',
+                    icon: Icons.history,
+                    onTap: () {
                       setState(() {
-                        _focusArea = _HomeFocusArea.content;
+                        _selectedNavIndex = 1;
                       });
-                      _homeFocusNode.requestFocus();
-                      _controller.selectIndex(index);
+                      unawaited(_switchHomeTab(TvHomeTab.history));
                     },
-                  );
-                },
+                  ),
+                  TvNavItem(
+                    label: '收藏',
+                    icon: Icons.star_border,
+                    onTap: () {
+                      setState(() {
+                        _selectedNavIndex = 2;
+                      });
+                      unawaited(_switchHomeTab(TvHomeTab.favorite));
+                    },
+                  ),
+                  TvNavItem(
+                    label: '稍后再看',
+                    icon: Icons.watch_later_outlined,
+                    onTap: () {
+                      setState(() {
+                        _selectedNavIndex = 3;
+                      });
+                      unawaited(_switchHomeTab(TvHomeTab.watchLater));
+                    },
+                  ),
+                  TvNavItem(
+                    label: '搜索',
+                    icon: Icons.search,
+                    onTap: () => unawaited(
+                      _openNamed(TvRoutes.search, returnFocusIndex: 4),
+                    ),
+                  ),
+                  TvNavItem(
+                    label: '媒体库',
+                    icon: Icons.video_library_outlined,
+                    onTap: () => unawaited(
+                      _openNamed(TvRoutes.library, returnFocusIndex: 5),
+                    ),
+                  ),
+                  TvNavItem(
+                    label: session.isLogin.value ? '我的' : '登录',
+                    icon: Icons.account_circle_outlined,
+                    onTap: () => unawaited(
+                      _openNamed(TvRoutes.login, returnFocusIndex: 6),
+                    ),
+                  ),
+                  TvNavItem(
+                    label: '设置',
+                    icon: Icons.settings_outlined,
+                    onTap: () => unawaited(
+                      _openNamed(TvRoutes.settings, returnFocusIndex: 7),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-        ],
+            Expanded(
+              child: Focus(
+                focusNode: _homeFocusNode,
+                autofocus: true,
+                onFocusChange: (bool value) {
+                  if (_homeFocused != value && mounted) {
+                    setState(() {
+                      _homeFocused = value;
+                    });
+                  }
+                },
+                onKeyEvent: _handleHomeKey,
+                child: Obx(
+                  () {
+                    // _HomeStage 在子 widget build 内读取 currentTab / 当前列表 / selectedIndex 等 Rx，
+                    // 这些读取不在本 Obx 闭包内。显式订阅它们：既避免 GetX “improper use” 抛错，
+                    // 也让首页在切换 Tab / 数据刷新 / 选中项变化时正确重建。
+                    _controller.currentVideos;
+                    _controller.selectedVideo;
+                    return _HomeStage(
+                      controller: _controller,
+                      contentFocused: _homeFocused,
+                      onSelectContent: (int index) {
+                        _homeFocusNode.requestFocus();
+                        _controller.selectIndex(index);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -150,71 +161,7 @@ class _TvShellPageState extends State<TvShellPage> {
     if (event is! KeyDownEvent) {
       return KeyEventResult.ignored;
     }
-    switch (_focusArea) {
-      case _HomeFocusArea.quickActions:
-        return _handleQuickActionKey(event.logicalKey);
-      case _HomeFocusArea.tabs:
-        return _handleTabKey(event.logicalKey);
-      case _HomeFocusArea.content:
-        return _handleContentKey(event.logicalKey);
-    }
-  }
-
-  KeyEventResult _handleQuickActionKey(LogicalKeyboardKey key) {
-    switch (key) {
-      case LogicalKeyboardKey.arrowLeft:
-        if (_quickActionIndex > 0) {
-          setState(() => _quickActionIndex--);
-        }
-        return KeyEventResult.handled;
-      case LogicalKeyboardKey.arrowRight:
-        if (_quickActionIndex < _QuickActionType.values.length - 1) {
-          setState(() => _quickActionIndex++);
-        }
-        return KeyEventResult.handled;
-      case LogicalKeyboardKey.arrowDown:
-        setState(() => _focusArea = _HomeFocusArea.tabs);
-        return KeyEventResult.handled;
-      case LogicalKeyboardKey.arrowUp:
-        _controller.markRecommendStageActive(false);
-        _navFocusNodes[_selectedNavIndex].requestFocus();
-        return KeyEventResult.handled;
-      case LogicalKeyboardKey.select:
-      case LogicalKeyboardKey.enter:
-        unawaited(
-            _activateQuickAction(_QuickActionType.values[_quickActionIndex]));
-        return KeyEventResult.handled;
-      default:
-        return KeyEventResult.ignored;
-    }
-  }
-
-  KeyEventResult _handleTabKey(LogicalKeyboardKey key) {
-    switch (key) {
-      case LogicalKeyboardKey.arrowLeft:
-        if (_tabIndex > 0) {
-          setState(() => _tabIndex--);
-        }
-        return KeyEventResult.handled;
-      case LogicalKeyboardKey.arrowRight:
-        if (_tabIndex < TvHomeTab.values.length - 1) {
-          setState(() => _tabIndex++);
-        }
-        return KeyEventResult.handled;
-      case LogicalKeyboardKey.arrowUp:
-        setState(() => _focusArea = _HomeFocusArea.quickActions);
-        return KeyEventResult.handled;
-      case LogicalKeyboardKey.arrowDown:
-        setState(() => _focusArea = _HomeFocusArea.content);
-        return KeyEventResult.handled;
-      case LogicalKeyboardKey.select:
-      case LogicalKeyboardKey.enter:
-        setState(() => _focusArea = _HomeFocusArea.content);
-        unawaited(_switchHomeTab(TvHomeTab.values[_tabIndex]));
-        return KeyEventResult.handled;
-      default:
-        return KeyEventResult.ignored;
-    }
+    return _handleContentKey(event.logicalKey);
   }
 
   KeyEventResult _handleContentKey(LogicalKeyboardKey key) {
@@ -223,8 +170,6 @@ class _TvShellPageState extends State<TvShellPage> {
         if (_controller.currentVideos.isNotEmpty &&
             _controller.selectedIndex.value > 0) {
           _controller.selectPrevious();
-        } else {
-          setState(() => _focusArea = _HomeFocusArea.tabs);
         }
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowDown:
@@ -250,44 +195,13 @@ class _TvShellPageState extends State<TvShellPage> {
     }
   }
 
-  Future<void> _activateQuickAction(_QuickActionType type) async {
-    switch (type) {
-      case _QuickActionType.search:
-        await _openNamed(TvRoutes.search, returnFocusIndex: 1);
-        return;
-      case _QuickActionType.history:
-        await _switchHomeTab(TvHomeTab.history);
-        break;
-      case _QuickActionType.favorite:
-        await _switchHomeTab(TvHomeTab.favorite);
-        break;
-      case _QuickActionType.watchLater:
-        await _switchHomeTab(TvHomeTab.watchLater);
-        break;
-      case _QuickActionType.account:
-        await _openNamed(TvRoutes.login, returnFocusIndex: 3);
-        return;
-      case _QuickActionType.settings:
-        await _openNamed(TvRoutes.settings, returnFocusIndex: 4);
-        return;
-    }
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _focusArea = _HomeFocusArea.content;
-    });
-    _homeFocusNode.requestFocus();
-  }
-
   Future<void> _switchHomeTab(TvHomeTab tab) async {
     await _controller.switchTab(tab);
     if (!mounted) {
       return;
     }
     setState(() {
-      _selectedNavIndex = 0;
-      _tabIndex = tab.index;
+      _selectedNavIndex = tab.index;
     });
     _controller.markRecommendStageActive(true);
     _homeFocusNode.requestFocus();
@@ -332,8 +246,39 @@ class _TvShellPageState extends State<TvShellPage> {
       return;
     }
     setState(() {
-      _selectedNavIndex = 0;
+      _selectedNavIndex = _controller.currentTab.value.index;
     });
+    _controller.markRecommendStageActive(true);
+    _homeFocusNode.requestFocus();
+  }
+
+  Future<void> _confirmExit() async {
+    _controller.markRecommendStageActive(false);
+    final bool? exit = await Get.dialog<bool>(
+      AlertDialog(
+        backgroundColor: const Color(0xFF10182A),
+        title: const Text('退出 PiliPala TV？',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+        content: const Text(
+          '再确认一次，避免遥控器误按直接退到桌面。',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Get.back(result: false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Get.back(result: true),
+            child: const Text('退出'),
+          ),
+        ],
+      ),
+    );
+    if (exit == true) {
+      SystemNavigator.pop();
+      return;
+    }
     _controller.markRecommendStageActive(true);
     _homeFocusNode.requestFocus();
   }
@@ -351,20 +296,12 @@ class _TvShellPageState extends State<TvShellPage> {
 class _HomeStage extends StatelessWidget {
   const _HomeStage({
     required this.controller,
-    required this.focusArea,
-    required this.quickActionIndex,
-    required this.tabIndex,
-    required this.onQuickActionTap,
-    required this.onTabTap,
+    required this.contentFocused,
     required this.onSelectContent,
   });
 
   final TvHomeController controller;
-  final _HomeFocusArea? focusArea;
-  final int quickActionIndex;
-  final int tabIndex;
-  final ValueChanged<_QuickActionType> onQuickActionTap;
-  final ValueChanged<TvHomeTab> onTabTap;
+  final bool contentFocused;
   final ValueChanged<int> onSelectContent;
 
   @override
@@ -390,30 +327,16 @@ class _HomeStage extends StatelessWidget {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(30, 24, 30, 24),
+          padding: const EdgeInsets.fromLTRB(30, 30, 30, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(
-                '首页',
+                controller.currentTabLabel,
                 style: Theme.of(context).textTheme.displaySmall?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.w900,
                     ),
-              ),
-              const SizedBox(height: 14),
-              _QuickActionBar(
-                session: Get.find<TvSessionController>(),
-                focused: focusArea == _HomeFocusArea.quickActions,
-                selectedIndex: quickActionIndex,
-                onTap: onQuickActionTap,
-              ),
-              const SizedBox(height: 14),
-              _HomeTabBar(
-                focused: focusArea == _HomeFocusArea.tabs,
-                selectedIndex: tabIndex,
-                currentTab: controller.currentTab.value,
-                onTap: onTabTap,
               ),
               const SizedBox(height: 10),
               Text(
@@ -428,7 +351,7 @@ class _HomeStage extends StatelessWidget {
                   controller: controller,
                   videos: videos,
                   selectedVideo: selectedVideo,
-                  contentFocused: focusArea == _HomeFocusArea.content,
+                  contentFocused: contentFocused,
                   onSelectContent: onSelectContent,
                 ),
               ),
@@ -440,175 +363,7 @@ class _HomeStage extends StatelessWidget {
   }
 }
 
-class _QuickActionBar extends StatelessWidget {
-  const _QuickActionBar({
-    required this.session,
-    required this.focused,
-    required this.selectedIndex,
-    required this.onTap,
-  });
-
-  final TvSessionController session;
-  final bool focused;
-  final int selectedIndex;
-  final ValueChanged<_QuickActionType> onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Obx(
-      () {
-        final List<_QuickActionData> actions = <_QuickActionData>[
-          const _QuickActionData(
-            type: _QuickActionType.search,
-            label: '搜索',
-            icon: Icons.search,
-          ),
-          const _QuickActionData(
-            type: _QuickActionType.history,
-            label: '历史',
-            icon: Icons.history,
-          ),
-          const _QuickActionData(
-            type: _QuickActionType.favorite,
-            label: '收藏',
-            icon: Icons.star_border,
-          ),
-          const _QuickActionData(
-            type: _QuickActionType.watchLater,
-            label: '稍后再看',
-            icon: Icons.watch_later_outlined,
-          ),
-          _QuickActionData(
-            type: _QuickActionType.account,
-            label: session.isLogin.value ? '我的' : '登录',
-            icon: Icons.account_circle_outlined,
-          ),
-          const _QuickActionData(
-            type: _QuickActionType.settings,
-            label: '设置',
-            icon: Icons.settings_outlined,
-          ),
-        ];
-        return SizedBox(
-          height: 48,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: actions.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 10),
-            itemBuilder: (BuildContext context, int index) {
-              final _QuickActionData action = actions[index];
-              return _PillButton(
-                label: action.label,
-                icon: action.icon,
-                selected: focused && selectedIndex == index,
-                active: false,
-                onTap: () => onTap(action.type),
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _HomeTabBar extends StatelessWidget {
-  const _HomeTabBar({
-    required this.focused,
-    required this.selectedIndex,
-    required this.currentTab,
-    required this.onTap,
-  });
-
-  final bool focused;
-  final int selectedIndex;
-  final TvHomeTab currentTab;
-  final ValueChanged<TvHomeTab> onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    const List<TvHomeTab> tabs = TvHomeTab.values;
-    return SizedBox(
-      height: 44,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: tabs.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
-        itemBuilder: (BuildContext context, int index) {
-          final TvHomeTab tab = tabs[index];
-          return _PillButton(
-            label: _tabLabel(tab),
-            selected: focused && selectedIndex == index,
-            active: currentTab == tab,
-            onTap: () => onTap(tab),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _PillButton extends StatelessWidget {
-  const _PillButton({
-    required this.label,
-    required this.selected,
-    required this.active,
-    required this.onTap,
-    this.icon,
-  });
-
-  final String label;
-  final IconData? icon;
-  final bool selected;
-  final bool active;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final bool highlighted = selected || active;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 120),
-      decoration: BoxDecoration(
-        color: highlighted ? Colors.white : const Color(0xAA111B2B),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: selected ? Colors.white : Colors.white.withOpacity(0.14),
-          width: selected ? 2 : 1,
-        ),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              if (icon != null) ...<Widget>[
-                Icon(
-                  icon,
-                  color: highlighted ? const Color(0xFF0F172A) : Colors.white,
-                  size: 19,
-                ),
-                const SizedBox(width: 8),
-              ],
-              Text(
-                label,
-                style: TextStyle(
-                  color: highlighted ? const Color(0xFF0F172A) : Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ContentStage extends StatelessWidget {
+class _ContentStage extends StatefulWidget {
   const _ContentStage({
     required this.controller,
     required this.videos,
@@ -624,7 +379,59 @@ class _ContentStage extends StatelessWidget {
   final ValueChanged<int> onSelectContent;
 
   @override
+  State<_ContentStage> createState() => _ContentStageState();
+}
+
+class _ContentStageState extends State<_ContentStage> {
+  static const double _rowExtent = 112;
+  final ScrollController _scrollController = ScrollController();
+  late final Worker _selectedWorker;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedWorker = ever<int>(
+      widget.controller.selectedIndex,
+      _scrollToSelected,
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToSelected(widget.controller.selectedIndex.value);
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _ContentStage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToSelected(widget.controller.selectedIndex.value);
+    });
+  }
+
+  @override
+  void dispose() {
+    _selectedWorker.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToSelected(int index) {
+    if (!_scrollController.hasClients || !mounted) {
+      return;
+    }
+    final double target = (index * _rowExtent)
+        .clamp(0.0, _scrollController.position.maxScrollExtent);
+    _scrollController.animateTo(
+      target,
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final TvHomeController controller = widget.controller;
+    final List<TvVideoCardData> videos = widget.videos;
+    final TvVideoCardData? selectedVideo = widget.selectedVideo;
     if (controller.currentTabNeedsLogin) {
       return _StateCard(
         icon: Icons.qr_code_2,
@@ -652,7 +459,7 @@ class _ContentStage extends StatelessWidget {
             : '左键返回菜单',
       );
     }
-    final TvVideoCardData currentVideo = selectedVideo!;
+    final TvVideoCardData currentVideo = selectedVideo;
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         final double listWidth =
@@ -664,12 +471,13 @@ class _ContentStage extends StatelessWidget {
             SizedBox(
               width: listWidth,
               child: ListView.separated(
+                controller: _scrollController,
                 padding: EdgeInsets.zero,
                 itemBuilder: (_, int index) => _HomeVideoRow(
                   data: videos[index],
                   selected: index == controller.selectedIndex.value,
-                  contentFocused: contentFocused,
-                  onTap: () => onSelectContent(index),
+                  contentFocused: widget.contentFocused,
+                  onTap: () => widget.onSelectContent(index),
                 ),
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemCount: videos.length,
@@ -1208,31 +1016,6 @@ class _LoadingStateCard extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-class _QuickActionData {
-  const _QuickActionData({
-    required this.type,
-    required this.label,
-    required this.icon,
-  });
-
-  final _QuickActionType type;
-  final String label;
-  final IconData icon;
-}
-
-String _tabLabel(TvHomeTab tab) {
-  switch (tab) {
-    case TvHomeTab.recommend:
-      return '推荐';
-    case TvHomeTab.history:
-      return '历史';
-    case TvHomeTab.favorite:
-      return '收藏';
-    case TvHomeTab.watchLater:
-      return '稍后再看';
   }
 }
 

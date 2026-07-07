@@ -49,6 +49,7 @@ class TvHomeController extends GetxController {
   final RxBool previewReady = false.obs;
   final RxnString previewError = RxnString();
   final RxnString previewBvid = RxnString();
+  final RxBool recommendLoadingMore = false.obs;
 
   Timer? _fullscreenTimer;
   Timer? _previewTimer;
@@ -61,6 +62,7 @@ class TvHomeController extends GetxController {
   bool _historyLoaded = false;
   bool _favoriteLoaded = false;
   bool _watchLaterLoaded = false;
+  int _recommendFreshIdx = 0;
 
   VideoController? get previewVideoController => _previewVideoController;
   TvAntiAddictionController get _antiAddiction =>
@@ -178,10 +180,11 @@ class TvHomeController extends GetxController {
     try {
       final dynamic res = await VideoHttp.rcmdVideoListApp(
         loginStatus: isLogin,
-        freshIdx: 0,
+        freshIdx: force ? 0 : _recommendFreshIdx,
       );
       if (res['status'] == true) {
         items.value = List<RecVideoItemAppModel>.from(res['data'] as List);
+        _recommendFreshIdx = 1;
         if (currentTab.value == TvHomeTab.recommend) {
           _normalizeSelectedIndex(resetWhenEmpty: true);
           schedulePreviewAutoplay(immediate: true);
@@ -195,6 +198,35 @@ class TvHomeController extends GetxController {
       SmartDialog.showToast(recommendError.value!);
     } finally {
       recommendLoading.value = false;
+    }
+  }
+
+  Future<void> loadMoreRecommendIfNeeded() async {
+    if (!isRecommendTab ||
+        recommendLoading.value ||
+        recommendLoadingMore.value ||
+        items.isEmpty ||
+        selectedIndex.value < items.length - 3) {
+      return;
+    }
+    recommendLoadingMore.value = true;
+    try {
+      final dynamic res = await VideoHttp.rcmdVideoListApp(
+        loginStatus: isLogin,
+        freshIdx: _recommendFreshIdx,
+      );
+      if (res['status'] == true) {
+        final List<RecVideoItemAppModel> more =
+            List<RecVideoItemAppModel>.from(res['data'] as List);
+        if (more.isNotEmpty) {
+          items.addAll(more);
+          _recommendFreshIdx++;
+        }
+      }
+    } catch (_) {
+      // 追加加载失败不打断当前遥控器浏览。
+    } finally {
+      recommendLoadingMore.value = false;
     }
   }
 
@@ -264,6 +296,9 @@ class TvHomeController extends GetxController {
       return;
     }
     selectedIndex.value = index.clamp(0, list.length - 1);
+    if (isRecommendTab) {
+      unawaited(loadMoreRecommendIfNeeded());
+    }
     if (schedule) {
       if (isRecommendTab) {
         schedulePreviewAutoplay();
