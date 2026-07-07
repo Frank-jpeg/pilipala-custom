@@ -242,6 +242,10 @@ class LoginHttp {
   }
 
   // 按 key 排序后用 %20 编码拼接成 query/body，签名与实际发送共用，保证一致。
+  static String tvEncodedQuery(Map<String, dynamic> params) {
+    return _tvEncodedQuery(params);
+  }
+
   static String _tvEncodedQuery(Map<String, dynamic> params) {
     final List<String> keys = params.keys.toList()..sort();
     return keys

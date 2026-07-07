@@ -8,8 +8,9 @@ class SearchVideoModel {
     list = json['result'] == null
         ? []
         : json['result']
-            .where((e) => e['available'] == true)
-            .map<SearchVideoItemModel>((e) => SearchVideoItemModel.fromJson(e))
+            .where((e) => e is Map && e['available'] != false)
+            .map<SearchVideoItemModel>((e) =>
+                SearchVideoItemModel.fromJson(Map<String, dynamic>.from(e)))
             .toList();
   }
 }
@@ -85,7 +86,7 @@ class SearchVideoItemModel {
     aid = json['aid'];
     bvid = json['bvid'];
     mid = json['mid'];
-    title = json['title'].replaceAll(RegExp(r'<.*?>'), '');
+    title = (json['title']?.toString() ?? '').replaceAll(RegExp(r'<.*?>'), '');
     // title = Em.regTitle(json['title']);
     titleList = Em.regTitle(json['title']);
     description = json['description'];

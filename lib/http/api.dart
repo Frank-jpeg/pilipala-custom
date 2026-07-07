@@ -128,6 +128,12 @@ class Api {
   // 获取当前用户状态
   static const String userStatOwner = '/x/web-interface/nav/stat';
 
+  // TV 端账号内容接口，使用 access_key 鉴权；手机号登录没有 Web cookie 时优先走这些接口。
+  static const String tvFavorites = '/x/tv/favorites/v2';
+  static const String tvFavoritesFolders = '/x/tv/favorites/folders';
+  static const String tvHistory = '/x/v2/history';
+  static const String tvWatchLater = '/x/tv/to_views';
+
   // 收藏夹
   // https://api.bilibili.com/x/v3/fav/folder/created/list?pn=1&ps=10&up_mid=17340771
   static const String userFavFolder = '/x/v3/fav/folder/created/list';

@@ -3,7 +3,6 @@ import 'package:get/get.dart';
 import 'package:pilipala/tv/controllers/tv_library_controller.dart';
 import 'package:pilipala/tv/controllers/tv_session_controller.dart';
 import 'package:pilipala/tv/tv_routes.dart';
-import 'package:pilipala/tv/utils/tv_video_mapper.dart';
 import 'package:pilipala/tv/widgets/tv_async_state.dart';
 import 'package:pilipala/tv/widgets/tv_focusable_button.dart';
 import 'package:pilipala/tv/widgets/tv_horizontal_rail.dart';
@@ -92,12 +91,11 @@ class TvLibraryPage extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 24),
-                  if (controller.historyList.isNotEmpty) ...<Widget>[
+                  if (controller.historyCards.isNotEmpty) ...<Widget>[
                     TvHorizontalRail(
                       title: '历史记录',
-                      items: controller.historyList
+                      items: controller.historyCards
                           .take(10)
-                          .map(TvVideoMapper.fromHistory)
                           .toList(growable: false),
                       onTap: (data) => Get.toNamed(
                         '${TvRoutes.video}?bvid=${data.bvid}&cid=${data.cid}&aid=${data.aid}',
@@ -105,12 +103,11 @@ class TvLibraryPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 28),
                   ],
-                  if (controller.watchLaterList.isNotEmpty) ...<Widget>[
+                  if (controller.watchLaterCards.isNotEmpty) ...<Widget>[
                     TvHorizontalRail(
                       title: '稍后再看',
-                      items: controller.watchLaterList
+                      items: controller.watchLaterCards
                           .take(10)
-                          .map(TvVideoMapper.fromWatchLater)
                           .toList(growable: false),
                       onTap: (data) => Get.toNamed(
                         '${TvRoutes.video}?bvid=${data.bvid}&cid=${data.cid}&aid=${data.aid}',
@@ -137,12 +134,11 @@ class TvLibraryPage extends StatelessWidget {
                       }).toList(),
                     ),
                     const SizedBox(height: 20),
-                    if (controller.favVideos.isNotEmpty)
+                    if (controller.favCards.isNotEmpty)
                       TvHorizontalRail(
                         title: '收藏内容',
-                        items: controller.favVideos
+                        items: controller.favCards
                             .take(10)
-                            .map(TvVideoMapper.fromFavDetail)
                             .toList(growable: false),
                         onTap: (data) => Get.toNamed(
                           '${TvRoutes.video}?bvid=${data.bvid}&cid=${data.cid}&aid=${data.aid}',

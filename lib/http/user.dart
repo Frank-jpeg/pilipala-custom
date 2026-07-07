@@ -13,6 +13,8 @@ import '../models/user/info.dart';
 import '../models/user/stat.dart';
 import '../models/user/sub_detail.dart';
 import '../models/user/sub_folder.dart';
+import '../tv/models/tv_video_card_data.dart';
+import '../utils/storage.dart';
 import 'api.dart';
 import 'init.dart';
 import 'login.dart';
@@ -147,6 +149,308 @@ class UserHttp {
     } else {
       return {'status': false, 'data': [], 'msg': res.data['message']};
     }
+  }
+
+  static String cachedAccessKey() {
+    final dynamic accessKeyInfo = GStrorage.localCache.get(
+      LocalCacheKey.accessKey,
+      defaultValue: const <String, Object>{},
+    );
+    if (accessKeyInfo is Map) {
+      return accessKeyInfo['value']?.toString() ?? '';
+    }
+    return '';
+  }
+
+  static int _tvInt(dynamic value) {
+    if (value is int) {
+      return value;
+    }
+    if (value is num) {
+      return value.toInt();
+    }
+    return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  static int tvInt(dynamic value) => _tvInt(value);
+
+  static String _tvString(dynamic value) => value?.toString() ?? '';
+
+  static List<dynamic> _tvList(dynamic value) {
+    if (value is List) {
+      return value;
+    }
+    return const <dynamic>[];
+  }
+
+  static TvVideoCardData _tvCardFromMap(Map<dynamic, dynamic> json) {
+    final Map<dynamic, dynamic> upper = json['upper'] is Map
+        ? json['upper'] as Map
+        : const <dynamic, dynamic>{};
+    final Map<dynamic, dynamic> owner = json['owner'] is Map
+        ? json['owner'] as Map
+        : const <dynamic, dynamic>{};
+    final Map<dynamic, dynamic> uploader = json['uploader'] is Map
+        ? json['uploader'] as Map
+        : const <dynamic, dynamic>{};
+    final Map<dynamic, dynamic> ugcExt = json['ugc_ext'] is Map
+        ? json['ugc_ext'] as Map
+        : const <dynamic, dynamic>{};
+    final Map<dynamic, dynamic> infocExt = json['infoc_ext'] is Map
+        ? json['infoc_ext'] as Map
+        : const <dynamic, dynamic>{};
+    final Map<dynamic, dynamic> jumpInfo = json['jump_info'] is Map
+        ? json['jump_info'] as Map
+        : const <dynamic, dynamic>{};
+    final Map<dynamic, dynamic> page =
+        json['page'] is Map ? json['page'] as Map : const <dynamic, dynamic>{};
+    final Map<dynamic, dynamic> playerArgs = json['player_args'] is Map
+        ? json['player_args'] as Map
+        : const <dynamic, dynamic>{};
+    final Map<dynamic, dynamic> stat =
+        json['stat'] is Map ? json['stat'] as Map : const <dynamic, dynamic>{};
+    final List<dynamic> playList = _tvList(json['play_list']);
+    final Map<dynamic, dynamic> firstPlay =
+        playList.isNotEmpty && playList.first is Map
+            ? playList.first as Map
+            : const <dynamic, dynamic>{};
+
+    final int aid = _tvInt(
+      json['aid'] ??
+          json['oid'] ??
+          json['id'] ??
+          json['param'] ??
+          json['card_id'] ??
+          jumpInfo['video_id'] ??
+          jumpInfo['VideoId'] ??
+          playerArgs['aid'] ??
+          ugcExt['aid'] ??
+          infocExt['aid'],
+    );
+    final int cid = _tvInt(
+      json['cid'] ??
+          playerArgs['cid'] ??
+          firstPlay['cid'] ??
+          page['cid'] ??
+          page['id'] ??
+          ugcExt['cid'] ??
+          ugcExt['first_cid'] ??
+          infocExt['cid'],
+    );
+    final String bvid = _tvString(
+      json['bvid'] ??
+          json['bv_id'] ??
+          json['bvid_str'] ??
+          json['bv'] ??
+          ugcExt['bvid'] ??
+          ugcExt['bv_id'],
+    );
+    final String title = _tvString(
+      json['title'] ??
+          json['hover_title'] ??
+          json['long_title'] ??
+          json['name'] ??
+          page['title'] ??
+          firstPlay['title'] ??
+          ugcExt['title'],
+    );
+    final String cover = _tvString(
+      json['cover'] ??
+          json['horizontal_url'] ??
+          json['vertical_url'] ??
+          json['pic'] ??
+          json['poster'] ??
+          json['card_cover'] ??
+          json['image'] ??
+          firstPlay['cover'] ??
+          ugcExt['cover'],
+    );
+    final String ownerName = _tvString(
+      upper['name'] ??
+          upper['uname'] ??
+          owner['name'] ??
+          owner['uname'] ??
+          uploader['up_name'] ??
+          uploader['name'] ??
+          uploader['uname'] ??
+          ugcExt['up_name'] ??
+          json['author'] ??
+          json['author_name'] ??
+          json['up_name'],
+    );
+    final String desc = _tvString(
+      json['desc'] ??
+          json['description'] ??
+          json['hover_subtitle'] ??
+          json['subtitle'] ??
+          json['subtitle2'] ??
+          firstPlay['subtitle'] ??
+          ugcExt['desc'] ??
+          json['intro'] ??
+          stat['view'],
+    );
+
+    return TvVideoCardData(
+      title: title.isEmpty ? '未命名视频' : title,
+      cover: cover.startsWith('//') ? 'https:$cover' : cover,
+      bvid: bvid,
+      cid: cid,
+      aid: aid,
+      ownerName: ownerName.isEmpty ? '未知UP' : ownerName,
+      duration: _tvInt(
+        json['duration'] ??
+            playerArgs['duration'] ??
+            firstPlay['duration'] ??
+            ugcExt['duration'],
+      ),
+      subtitle: desc.isEmpty ? null : desc,
+      desc: desc.isEmpty ? null : desc,
+    );
+  }
+
+  static Future<dynamic> tvHistoryListByAccessKey({
+    required String accessKey,
+    int pn = 1,
+    int ps = 20,
+  }) async {
+    if (accessKey.isEmpty) {
+      return {'status': false, 'msg': 'access_key 为空'};
+    }
+    final Map<String, dynamic> params =
+        await LoginHttp.signedTvParams(<String, dynamic>{
+      'access_key': accessKey,
+      'pn': pn,
+      'ps': ps,
+    });
+    final Response<dynamic> res = await Request.dio.get(
+      '${Api.tvHistory}?${LoginHttp.tvEncodedQuery(params)}',
+      options: Options(
+          headers: <String, dynamic>{'user-agent': LoginHttp.tvUserAgent}),
+    );
+    final dynamic body = res.data;
+    if (body is Map && body['code'] == 0) {
+      final List<TvVideoCardData> cards = _tvList(body['data'])
+          .whereType<Map>()
+          .map(_tvCardFromMap)
+          .where((TvVideoCardData item) => item.aid > 0 || item.bvid.isNotEmpty)
+          .toList(growable: false);
+      return {'status': true, 'data': cards};
+    }
+    return {
+      'status': false,
+      'data': <TvVideoCardData>[],
+      'msg': body is Map ? body['message']?.toString() ?? '加载历史失败' : '加载历史失败',
+      'code': body is Map ? body['code'] : res.statusCode,
+    };
+  }
+
+  static Future<dynamic> tvWatchLaterByAccessKey({
+    required String accessKey,
+    int pn = 1,
+    int ps = 20,
+  }) async {
+    if (accessKey.isEmpty) {
+      return {'status': false, 'msg': 'access_key 为空'};
+    }
+    final Map<String, dynamic> params =
+        await LoginHttp.signedTvParams(<String, dynamic>{
+      'access_key': accessKey,
+      'pn': pn,
+      'ps': ps,
+      'login_guide_type': '',
+    });
+    final Response<dynamic> res = await Request.dio.get(
+      '${Api.tvWatchLater}?${LoginHttp.tvEncodedQuery(params)}',
+      options: Options(
+          headers: <String, dynamic>{'user-agent': LoginHttp.tvUserAgent}),
+    );
+    final dynamic body = res.data;
+    if (body is Map && body['code'] == 0 && body['data'] is Map) {
+      final dynamic list = (body['data'] as Map)['cards'];
+      final List<TvVideoCardData> cards = _tvList(list)
+          .whereType<Map>()
+          .map(_tvCardFromMap)
+          .where((TvVideoCardData item) => item.aid > 0 || item.bvid.isNotEmpty)
+          .toList(growable: false);
+      return {'status': true, 'data': cards};
+    }
+    return {
+      'status': false,
+      'data': <TvVideoCardData>[],
+      'msg':
+          body is Map ? body['message']?.toString() ?? '加载稍后再看失败' : '加载稍后再看失败',
+      'code': body is Map ? body['code'] : res.statusCode,
+    };
+  }
+
+  static Future<dynamic> tvFavoritesByAccessKey({
+    required String accessKey,
+    int fid = 0,
+    int pn = 1,
+  }) async {
+    if (accessKey.isEmpty) {
+      return {'status': false, 'msg': 'access_key 为空'};
+    }
+    final Map<String, dynamic> params =
+        await LoginHttp.signedTvParams(<String, dynamic>{
+      'fid': fid,
+      'pn': pn,
+      'access_key': accessKey,
+      'login_guide_type': '',
+    });
+    final Response<dynamic> res = await Request.dio.get(
+      '${Api.tvFavorites}?${LoginHttp.tvEncodedQuery(params)}',
+      options: Options(
+          headers: <String, dynamic>{'user-agent': LoginHttp.tvUserAgent}),
+    );
+    final dynamic body = res.data;
+    if (body is Map && body['code'] == 0 && body['data'] is Map) {
+      final dynamic list = (body['data'] as Map)['list'];
+      final List<TvVideoCardData> cards = _tvList(list)
+          .whereType<Map>()
+          .map(_tvCardFromMap)
+          .where((TvVideoCardData item) => item.aid > 0 || item.bvid.isNotEmpty)
+          .toList(growable: false);
+      return {'status': true, 'data': cards};
+    }
+    return {
+      'status': false,
+      'data': <TvVideoCardData>[],
+      'msg': body is Map ? body['message']?.toString() ?? '加载收藏失败' : '加载收藏失败',
+      'code': body is Map ? body['code'] : res.statusCode,
+    };
+  }
+
+  static Future<dynamic> tvFavoriteFoldersByAccessKey({
+    required String accessKey,
+  }) async {
+    if (accessKey.isEmpty) {
+      return {'status': false, 'msg': 'access_key 为空'};
+    }
+    final Map<String, dynamic> params =
+        await LoginHttp.signedTvParams(<String, dynamic>{
+      'access_key': accessKey,
+      'aid': '',
+      'login_guide_type': '',
+    });
+    final Response<dynamic> res = await Request.dio.get(
+      '${Api.tvFavoritesFolders}?${LoginHttp.tvEncodedQuery(params)}',
+      options: Options(
+          headers: <String, dynamic>{'user-agent': LoginHttp.tvUserAgent}),
+    );
+    final dynamic body = res.data;
+    if (body is Map && body['code'] == 0) {
+      return {
+        'status': true,
+        'data': _tvList(body['data']).whereType<Map>().toList(growable: false),
+      };
+    }
+    return {
+      'status': false,
+      'data': <Map<dynamic, dynamic>>[],
+      'msg': body is Map ? body['message']?.toString() ?? '加载收藏夹失败' : '加载收藏夹失败',
+      'code': body is Map ? body['code'] : res.statusCode,
+    };
   }
 
   // 收藏夹

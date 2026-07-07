@@ -53,6 +53,13 @@ The TV MVP reuses the existing project API layer.
   - `网页登录兜底`: opens the same official Bilibili H5 login page used by the mobile app through WebView. Use this when QR/SMS login does not sync, or when password/risk verification is required.
 - The TV SMS path still uses the existing Web SMS + Geetest captcha flow, but the TV shell now injects a remote-controlled pointer for point-select captcha taps.
 - The `tvLogin` WebView path also injects the same remote-controlled pointer so official H5 password/risk verification remains operable from a DPAD-only device.
+- TV phone login stores an `access_key`. For logged-in TV account content, prefer the official TV access-key endpoints instead of Web cookie endpoints:
+  - history: `/x/v2/history`
+  - favorites folders: `/x/tv/favorites/folders`
+  - favorites: `/x/tv/favorites/v2`
+  - watch later: `/x/tv/to_views`
+- Home `历史` / `收藏` / `稍后再看` and the TV `媒体库` page should first try those TV endpoints, then fall back to the existing Web-cookie APIs. This avoids empty logged-in lists when phone login has no valid Web cookie.
+- Search uses the Web/WBI search endpoint, but TV must tolerate result items where `available` is missing/null and only filter items when `available == false`.
 
 Reference projects checked on 2026-06-29:
 
@@ -151,7 +158,7 @@ Use the latest `tv` branch artifact from GitHub Actions or the local arm64 relea
    - detail playback -> detail page
 13. Enter `历史` / `收藏` / `稍后再看` from the top quick actions or home tabs and verify:
    - not logged in: the right side shows the inline login prompt without crashing
-   - logged in: lists load correctly, DPAD up/down switches items, OK plays, right opens detail, left returns to the left nav
+   - logged in after phone login: lists load from TV `access_key` APIs, DPAD up/down switches items, OK plays, right opens detail, left returns to the left nav
 14. Enter `登录` and test all login paths:
     - `扫码登录`: scan the TV QR code and confirm the app detects login state.
     - `手机号登录`: use the on-screen 9-key number pad to input an 11-digit phone number, request an SMS code, and if Geetest point-select captcha appears, confirm the DPAD cursor appears, arrow keys move it, and OK can click the requested characters.
@@ -159,8 +166,8 @@ Use the latest `tv` branch artifact from GitHub Actions or the local arm64 relea
     - `网页登录兜底`: open the official WebView login page and confirm the DPAD cursor can click the official page controls, password/risk verification remains operable, and `刷新登录状态` syncs the account after login.
     - `我的`: after login, enter `我的` and confirm `退出登录` clears the login state.
 15. In `手机号登录`, confirm `清空`, `0`, `删除`, `返回手机号`, countdown resend, incomplete input validation, and captcha overlay re-entry all work with DPAD/OK.
-16. Enter `搜索` and confirm both `返回` and `搜索` buttons are focusable with DPAD.
-17. Enter `媒体库` and confirm the page is usable in both logged-in and not-logged-in states.
+16. Enter `搜索` and confirm both `返回` and `搜索` buttons are focusable with DPAD. Search a known public keyword such as `猫` and confirm video results render.
+17. Enter `媒体库` and confirm the page is usable in both logged-in and not-logged-in states. After TV phone login, verify `历史记录` / `收藏内容` / `稍后再看` all show the same access-key data path as the home channels.
 18. Enter `设置` and confirm idle auto-fullscreen can be toggled and its delay can be adjusted.
 19. In `设置`, set a parent PIN, enable `TV 防沉迷`, and confirm the default values are 30 minutes watch / 20 minutes rest / daily limit off.
 20. Temporarily reduce the single-session limit during manual testing if needed, then confirm recommendation preview and full-screen playback both trigger the lock page.

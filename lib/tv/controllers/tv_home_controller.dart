@@ -541,6 +541,17 @@ class TvHomeController extends GetxController {
     historyLoading.value = true;
     historyError.value = null;
     try {
+      final String accessKey = UserHttp.cachedAccessKey();
+      if (accessKey.isNotEmpty) {
+        final dynamic tvRes = await UserHttp.tvHistoryListByAccessKey(
+          accessKey: accessKey,
+        );
+        if (tvRes['status'] == true && tvRes['data'] is List<TvVideoCardData>) {
+          historyVideos.value = tvRes['data'] as List<TvVideoCardData>;
+          _historyLoaded = true;
+          return;
+        }
+      }
       final dynamic res = await UserHttp.historyList(null, null);
       if (res['status'] == true) {
         final HistoryData data = res['data'] as HistoryData;
@@ -569,6 +580,17 @@ class TvHomeController extends GetxController {
     watchLaterLoading.value = true;
     watchLaterError.value = null;
     try {
+      final String accessKey = UserHttp.cachedAccessKey();
+      if (accessKey.isNotEmpty) {
+        final dynamic tvRes = await UserHttp.tvWatchLaterByAccessKey(
+          accessKey: accessKey,
+        );
+        if (tvRes['status'] == true && tvRes['data'] is List<TvVideoCardData>) {
+          watchLaterVideos.value = tvRes['data'] as List<TvVideoCardData>;
+          _watchLaterLoaded = true;
+          return;
+        }
+      }
       final dynamic res = await UserHttp.seeYouLater();
       if (res['status'] == true) {
         final dynamic data = res['data'];
@@ -602,6 +624,32 @@ class TvHomeController extends GetxController {
     favoriteError.value = null;
     favoriteFolderTitle.value = null;
     try {
+      final String accessKey = UserHttp.cachedAccessKey();
+      if (accessKey.isNotEmpty) {
+        int fid = 0;
+        final dynamic folderRes = await UserHttp.tvFavoriteFoldersByAccessKey(
+          accessKey: accessKey,
+        );
+        if (folderRes['status'] == true && folderRes['data'] is List) {
+          final List folders = folderRes['data'] as List;
+          if (folders.isNotEmpty && folders.first is Map) {
+            final Map folder = folders.first as Map;
+            fid = UserHttp.tvInt(folder['fid'] ?? folder['id']);
+            favoriteFolderTitle.value =
+                folder['name']?.toString() ?? folder['title']?.toString();
+          }
+        }
+        final dynamic tvRes = await UserHttp.tvFavoritesByAccessKey(
+          accessKey: accessKey,
+          fid: fid,
+        );
+        if (tvRes['status'] == true && tvRes['data'] is List<TvVideoCardData>) {
+          favoriteVideos.value = tvRes['data'] as List<TvVideoCardData>;
+          favoriteFolderTitle.value ??= '我的收藏';
+          _favoriteLoaded = true;
+          return;
+        }
+      }
       int mid = _session.userInfo.value?.mid ?? 0;
       if (mid <= 0) {
         final dynamic userInfoRes = await UserHttp.userInfo();
