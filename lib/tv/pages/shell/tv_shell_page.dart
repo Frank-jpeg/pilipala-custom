@@ -37,7 +37,7 @@ class _TvShellPageState extends State<TvShellPage> {
       canPop: false,
       onPopInvoked: (bool didPop) {
         if (!didPop) {
-          unawaited(_confirmExit());
+          _handleShellBack();
         }
       },
       child: Scaffold(
@@ -250,6 +250,15 @@ class _TvShellPageState extends State<TvShellPage> {
     });
     _controller.markRecommendStageActive(true);
     _homeFocusNode.requestFocus();
+  }
+
+  void _handleShellBack() {
+    if (_controller.consumeShellExitSuppression()) {
+      _controller.markRecommendStageActive(true);
+      _homeFocusNode.requestFocus();
+      return;
+    }
+    unawaited(_confirmExit());
   }
 
   Future<void> _confirmExit() async {

@@ -59,6 +59,7 @@ class TvHomeController extends GetxController {
   int _fullscreenGeneration = 0;
   int _previewGeneration = 0;
   bool _recommendStageActive = true;
+  DateTime? _suppressShellExitUntil;
   bool _historyLoaded = false;
   bool _favoriteLoaded = false;
   bool _watchLaterLoaded = false;
@@ -355,7 +356,23 @@ class TvHomeController extends GetxController {
         ? '${TvRoutes.player}?bvid=${data.bvid}&cid=${data.cid}&aid=${data.aid}&source=$source&index=${selectedIndex.value}&start=$startSeconds'
         : '${TvRoutes.player}?bvid=${data.bvid}&cid=${data.cid}&aid=${data.aid}&source=$source&start=$startSeconds';
     await Get.toNamed(route);
+    suppressNextShellExit();
     markRecommendStageActive(true);
+  }
+
+  void suppressNextShellExit({
+    Duration duration = const Duration(milliseconds: 900),
+  }) {
+    _suppressShellExitUntil = DateTime.now().add(duration);
+  }
+
+  bool consumeShellExitSuppression() {
+    final DateTime? until = _suppressShellExitUntil;
+    if (until == null) {
+      return false;
+    }
+    _suppressShellExitUntil = null;
+    return DateTime.now().isBefore(until);
   }
 
   int _previewStartSecondsFor(TvVideoCardData data) {

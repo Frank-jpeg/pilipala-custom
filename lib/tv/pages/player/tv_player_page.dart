@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:pilipala/pages/danmaku/view.dart';
 import 'package:pilipala/plugin/pl_player/view.dart';
+import 'package:pilipala/tv/controllers/tv_home_controller.dart';
 import 'package:pilipala/tv/controllers/tv_player_controller.dart';
 import 'package:pilipala/tv/tv_routes.dart';
 import 'package:pilipala/tv/utils/tv_formatters.dart';
@@ -163,8 +164,8 @@ class TvPlayerPage extends StatelessWidget {
                             const SizedBox(width: 18),
                             Text(
                               controller.isRecommendSource
-                                  ? 'OK 播放/暂停  菜单 播放设置  左右 快进快退  上下 切换推荐  返回 退出'
-                                  : 'OK 播放/暂停  菜单 播放设置  左右 快进快退  上下 音量  返回 退出',
+                                  ? 'OK 播放/暂停  菜单 播放设置  左右 快进快退  上下 切换推荐  返回首页'
+                                  : 'OK 播放/暂停  菜单 播放设置  左右 快进快退  上下 音量  返回${controller.isHomeSource ? '首页' : '详情'}',
                               style: const TextStyle(color: Colors.white70),
                             ),
                           ],
@@ -189,6 +190,10 @@ class TvPlayerPage extends StatelessWidget {
   }
 
   void _exitPlayer(TvPlayerController controller) {
+    if ((controller.isRecommendSource || controller.isHomeSource) &&
+        Get.isRegistered<TvHomeController>()) {
+      Get.find<TvHomeController>().suppressNextShellExit();
+    }
     if (controller.isRecommendSource) {
       Get.back();
       return;
