@@ -41,6 +41,9 @@ class TvLibraryController extends GetxController {
         final dynamic historyRes = tvResponses[0];
         final dynamic laterRes = tvResponses[1];
         final dynamic favRes = tvResponses[2];
+        await _handleTvAuthInvalid(historyRes);
+        await _handleTvAuthInvalid(laterRes);
+        await _handleTvAuthInvalid(favRes);
         if (historyRes['status'] == true &&
             historyRes['data'] is List<TvVideoCardData>) {
           historyCards.value = historyRes['data'] as List<TvVideoCardData>;
@@ -121,8 +124,17 @@ class TvLibraryController extends GetxController {
         final Map folder = folders.first as Map;
         fid = UserHttp.tvInt(folder['fid'] ?? folder['id']);
       }
+    } else {
+      await _handleTvAuthInvalid(folderRes);
     }
     return UserHttp.tvFavoritesByAccessKey(accessKey: accessKey, fid: fid);
+  }
+
+  Future<void> _handleTvAuthInvalid(dynamic res) async {
+    if (!UserHttp.isTvAuthInvalidResponse(res)) {
+      return;
+    }
+    await Get.find<TvSessionController>().clearAccessKeyState(showToast: true);
   }
 
   Future<void> loadFavFolder(int mediaId) async {

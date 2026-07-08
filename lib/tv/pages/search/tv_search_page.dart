@@ -70,6 +70,14 @@ class _TvSearchPageState extends State<TvSearchPage> {
                 ],
               ),
               const SizedBox(height: 24),
+              if (_controller.resultSource.value == 'webFallback' &&
+                  _controller.results.isNotEmpty) ...<Widget>[
+                const Text(
+                  'TV 搜索暂不可用，已显示兼容搜索结果',
+                  style: TextStyle(color: Colors.white70),
+                ),
+                const SizedBox(height: 12),
+              ],
               if (_controller.hotItems.isNotEmpty) ...<Widget>[
                 const Text(
                   '热门搜索',

@@ -225,7 +225,7 @@ class TvLoginController extends GetxController {
       final dynamic res = await LoginHttp.loginInByWebSmsCode(
         cid: 86,
         tel: int.parse(phoneInput.value),
-        code: int.parse(smsCodeInput.value),
+        code: smsCodeInput.value,
         captchaKey: key,
       );
       if (res['status'] == true) {

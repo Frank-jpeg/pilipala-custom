@@ -20,6 +20,42 @@ import 'init.dart';
 import 'login.dart';
 
 class UserHttp {
+  static bool isTvAuthInvalidCode(dynamic code) {
+    if (code is int) {
+      return code == -101;
+    }
+    return int.tryParse(code?.toString() ?? '') == -101;
+  }
+
+  static bool isTvAuthInvalidResponse(dynamic res) {
+    if (res is! Map) {
+      return false;
+    }
+    if (res['authInvalid'] == true) {
+      return true;
+    }
+    return isTvAuthInvalidCode(res['code']);
+  }
+
+  static Map<String, dynamic> _tvFailure({
+    required dynamic body,
+    required int? statusCode,
+    required String fallbackMessage,
+    Object data = const <dynamic>[],
+  }) {
+    final dynamic code = body is Map ? body['code'] : statusCode;
+    final String message =
+        body is Map ? body['message']?.toString() ?? fallbackMessage : fallbackMessage;
+    return <String, dynamic>{
+      'status': false,
+      'data': data,
+      'msg': message,
+      'code': code,
+      'authInvalid': isTvAuthInvalidCode(code) ||
+          message.toLowerCase().contains('access_key'),
+    };
+  }
+
   static Future<dynamic> userStat({required int mid}) async {
     var res = await Request().get(Api.userStat, data: {'vmid': mid});
     if (res.data['code'] == 0) {
@@ -71,6 +107,7 @@ class UserHttp {
           ? body['message']?.toString() ?? 'TV 登录状态无效'
           : 'TV 登录状态无效',
       'code': body is Map ? body['code'] : res.statusCode,
+      'authInvalid': isTvAuthInvalidCode(body is Map ? body['code'] : res.statusCode),
     };
   }
 
@@ -336,12 +373,12 @@ class UserHttp {
           .toList(growable: false);
       return {'status': true, 'data': cards};
     }
-    return {
-      'status': false,
-      'data': <TvVideoCardData>[],
-      'msg': body is Map ? body['message']?.toString() ?? '加载历史失败' : '加载历史失败',
-      'code': body is Map ? body['code'] : res.statusCode,
-    };
+    return _tvFailure(
+      body: body,
+      statusCode: res.statusCode,
+      fallbackMessage: '加载历史失败',
+      data: <TvVideoCardData>[],
+    );
   }
 
   static Future<dynamic> tvWatchLaterByAccessKey({
@@ -374,13 +411,12 @@ class UserHttp {
           .toList(growable: false);
       return {'status': true, 'data': cards};
     }
-    return {
-      'status': false,
-      'data': <TvVideoCardData>[],
-      'msg':
-          body is Map ? body['message']?.toString() ?? '加载稍后再看失败' : '加载稍后再看失败',
-      'code': body is Map ? body['code'] : res.statusCode,
-    };
+    return _tvFailure(
+      body: body,
+      statusCode: res.statusCode,
+      fallbackMessage: '加载稍后再看失败',
+      data: <TvVideoCardData>[],
+    );
   }
 
   static Future<dynamic> tvFavoritesByAccessKey({
@@ -413,12 +449,12 @@ class UserHttp {
           .toList(growable: false);
       return {'status': true, 'data': cards};
     }
-    return {
-      'status': false,
-      'data': <TvVideoCardData>[],
-      'msg': body is Map ? body['message']?.toString() ?? '加载收藏失败' : '加载收藏失败',
-      'code': body is Map ? body['code'] : res.statusCode,
-    };
+    return _tvFailure(
+      body: body,
+      statusCode: res.statusCode,
+      fallbackMessage: '加载收藏失败',
+      data: <TvVideoCardData>[],
+    );
   }
 
   static Future<dynamic> tvFavoriteFoldersByAccessKey({
@@ -445,12 +481,12 @@ class UserHttp {
         'data': _tvList(body['data']).whereType<Map>().toList(growable: false),
       };
     }
-    return {
-      'status': false,
-      'data': <Map<dynamic, dynamic>>[],
-      'msg': body is Map ? body['message']?.toString() ?? '加载收藏夹失败' : '加载收藏夹失败',
-      'code': body is Map ? body['code'] : res.statusCode,
-    };
+    return _tvFailure(
+      body: body,
+      statusCode: res.statusCode,
+      fallbackMessage: '加载收藏夹失败',
+      data: <Map<dynamic, dynamic>>[],
+    );
   }
 
   // 收藏夹

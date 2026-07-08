@@ -603,6 +603,7 @@ class TvHomeController extends GetxController {
           _historyLoaded = true;
           return;
         }
+        await _handleTvAuthInvalid(tvRes);
       }
       final dynamic res = await UserHttp.historyList(null, null);
       if (res['status'] == true) {
@@ -642,6 +643,7 @@ class TvHomeController extends GetxController {
           _watchLaterLoaded = true;
           return;
         }
+        await _handleTvAuthInvalid(tvRes);
       }
       final dynamic res = await UserHttp.seeYouLater();
       if (res['status'] == true) {
@@ -690,6 +692,8 @@ class TvHomeController extends GetxController {
             favoriteFolderTitle.value =
                 folder['name']?.toString() ?? folder['title']?.toString();
           }
+        } else {
+          await _handleTvAuthInvalid(folderRes);
         }
         final dynamic tvRes = await UserHttp.tvFavoritesByAccessKey(
           accessKey: accessKey,
@@ -701,6 +705,7 @@ class TvHomeController extends GetxController {
           _favoriteLoaded = true;
           return;
         }
+        await _handleTvAuthInvalid(tvRes);
       }
       int mid = _session.userInfo.value?.mid ?? 0;
       if (mid <= 0) {
@@ -767,6 +772,13 @@ class TvHomeController extends GetxController {
         _normalizeSelectedIndex(resetWhenEmpty: true);
       }
     }
+  }
+
+  Future<void> _handleTvAuthInvalid(dynamic res) async {
+    if (!UserHttp.isTvAuthInvalidResponse(res)) {
+      return;
+    }
+    await _session.clearAccessKeyState(showToast: true);
   }
 
   void _normalizeSelectedIndex({bool resetWhenEmpty = false}) {

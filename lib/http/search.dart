@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:hive/hive.dart';
 import 'package:dio/dio.dart';
 import 'package:pilipala/models/search/all.dart';
@@ -202,6 +204,7 @@ class SearchHttp {
         return {
           'status': true,
           'data': SearchVideoModel(list: items),
+          'source': 'tv',
         };
       }
       final String msg = body is Map
@@ -212,12 +215,17 @@ class SearchHttp {
         'data': SearchVideoModel(list: <SearchVideoItemModel>[]),
         'msg': msg,
         'code': body is Map ? body['code'] : res.statusCode,
+        'source': 'tv',
+        'authInvalid': UserHttp.isTvAuthInvalidCode(
+          body is Map ? body['code'] : res.statusCode,
+        ),
       };
     } catch (e) {
       return {
         'status': false,
         'data': SearchVideoModel(list: <SearchVideoItemModel>[]),
         'msg': 'TV 搜索失败: $e',
+        'source': 'tv',
       };
     }
   }
@@ -260,6 +268,8 @@ class SearchHttp {
 
     final List<SearchVideoItemModel> items = <SearchVideoItemModel>[];
     final Set<String> seen = <String>{};
+    int dropped = 0;
+    int duplicated = 0;
     for (final Map<String, dynamic> raw in rawItems) {
       final Map<String, dynamic> mapped = _mapTvSearchItem(raw);
       final int aid = UserHttp.tvInt(mapped['aid'] ?? mapped['id']);
@@ -269,13 +279,47 @@ class SearchHttp {
               ? IdUtils.av2bv(aid)
               : '';
       final String key = bvid.isNotEmpty ? bvid : aid.toString();
-      if ((bvid.isEmpty && aid <= 0) || seen.contains(key)) {
+      if (bvid.isEmpty && aid <= 0) {
+        dropped++;
+        continue;
+      }
+      if (seen.contains(key)) {
+        duplicated++;
         continue;
       }
       seen.add(key);
       items.add(SearchVideoItemModel.fromJson(mapped));
     }
+    _logTvSearchParseSummary(
+      rawCount: rawItems.length,
+      parsedCount: items.length,
+      droppedCount: dropped,
+      duplicatedCount: duplicated,
+    );
     return items;
+  }
+
+  @visibleForTesting
+  static List<SearchVideoItemModel> debugParseTvSearchItems(
+    Map<dynamic, dynamic> data,
+  ) {
+    return _parseTvSearchItems(data);
+  }
+
+  static void _logTvSearchParseSummary({
+    required int rawCount,
+    required int parsedCount,
+    required int droppedCount,
+    required int duplicatedCount,
+  }) {
+    if (!kDebugMode && droppedCount == 0) {
+      return;
+    }
+    developer.log(
+      'TV search parse raw=$rawCount parsed=$parsedCount '
+      'dropped=$droppedCount duplicated=$duplicatedCount',
+      name: 'SearchHttp',
+    );
   }
 
   static Map<String, dynamic> _mapTvSearchItem(Map<String, dynamic> raw) {
@@ -366,10 +410,13 @@ class SearchHttp {
             ugcExt['desc'],
       ),
       'pic': cover.startsWith('//') ? 'https:$cover' : cover,
-      'duration': raw['duration'] ??
+      'duration': _string(
+        raw['duration'] ??
           firstCid['duration'] ??
           firstPlay['duration'] ??
-          ugcExt['duration'],
+          ugcExt['duration'] ??
+          '0:00',
+      ),
       'author': _string(
         raw['uname'] ??
             raw['author'] ??

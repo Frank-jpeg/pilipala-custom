@@ -6,6 +6,7 @@ import 'package:pilipala/common/widgets/custom_toast.dart';
 import 'package:pilipala/tv/controllers/tv_session_controller.dart';
 import 'package:pilipala/tv/pages/anti_addiction/tv_anti_addiction_lock_page.dart';
 import 'package:pilipala/tv/tv_routes.dart';
+import 'package:pilipala/utils/data.dart';
 
 class TvApp extends StatelessWidget {
   const TvApp({super.key});
@@ -47,6 +48,7 @@ class TvApp extends StatelessWidget {
         );
       },
       onReady: () {
+        Data.init();
         Get.find<TvSessionController>().restoreUser();
       },
     );

@@ -98,7 +98,7 @@ class LoginHttp {
   static Future loginInByWebSmsCode({
     int? cid,
     required int tel,
-    required int code,
+    required String code,
     required String captchaKey,
   }) async {
     // webSmsLogin

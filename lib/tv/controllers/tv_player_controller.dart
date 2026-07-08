@@ -4,6 +4,7 @@ import 'package:pilipala/http/constants.dart';
 import 'package:pilipala/http/video.dart';
 import 'package:pilipala/models/video/play/quality.dart';
 import 'package:pilipala/models/video/play/url.dart';
+import 'package:pilipala/models/video_detail_res.dart';
 import 'package:pilipala/plugin/pl_player/controller.dart';
 import 'package:pilipala/plugin/pl_player/models/data_source.dart';
 import 'package:pilipala/plugin/pl_player/models/play_status.dart';
@@ -84,20 +85,29 @@ class TvPlayerController extends GetxController {
     player.danmakuController?.clear();
     player.danmakuController = null;
     try {
-      if (bvid.isEmpty || cid <= 0) {
+      if (bvid.isEmpty) {
         error.value = '播放参数缺失';
         return;
       }
+      int resolvedCid = cid;
+      if (resolvedCid <= 0) {
+        resolvedCid = await _resolveCidFromDetail(bvid);
+      }
+      if (resolvedCid <= 0) {
+        error.value = '播放分 P 参数缺失';
+        SmartDialog.showToast(error.value!);
+        return;
+      }
       _bvid = bvid;
-      _cid = cid;
-      currentCid.value = cid;
+      _cid = resolvedCid;
+      currentCid.value = resolvedCid;
       player.isOpenDanmu.value = GStrorage.setting.get(
         SettingBoxKey.enableShowDanmaku,
         defaultValue: true,
       ) as bool;
       final dynamic res = await VideoHttp.videoUrl(
         bvid: bvid,
-        cid: cid,
+        cid: resolvedCid,
         qn: VideoQuality.high720.code,
       );
       if (res['status'] != true) {
@@ -140,7 +150,7 @@ class TvPlayerController extends GetxController {
             ? null
             : Duration(milliseconds: playData.timeLength!),
         bvid: bvid,
-        cid: cid,
+        cid: resolvedCid,
       );
       await player.getCurrentVolume();
       volume.value = player.volume.value;
@@ -151,6 +161,30 @@ class TvPlayerController extends GetxController {
       SmartDialog.showToast(error.value!);
     } finally {
       loading.value = false;
+    }
+  }
+
+  Future<int> _resolveCidFromDetail(String bvid) async {
+    try {
+      final dynamic res = await VideoHttp.videoIntro(bvid: bvid);
+      if (res['status'] != true || res['data'] is! VideoDetailData) {
+        return 0;
+      }
+      final VideoDetailData detail = res['data'] as VideoDetailData;
+      if ((detail.cid ?? 0) > 0) {
+        _aid = detail.aid ?? _aid;
+        return detail.cid!;
+      }
+      final int firstPageCid = detail.pages
+              ?.firstWhereOrNull((Part part) => (part.cid ?? 0) > 0)
+              ?.cid ??
+          0;
+      if (firstPageCid > 0) {
+        _aid = detail.aid ?? _aid;
+      }
+      return firstPageCid;
+    } catch (_) {
+      return 0;
     }
   }
 

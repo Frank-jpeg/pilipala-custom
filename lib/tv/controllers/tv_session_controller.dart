@@ -34,6 +34,9 @@ class TvSessionController extends GetxController {
           clearOnFailure: clearOnFailure,
         );
       }
+      if (result is Map && result['authInvalid'] == true) {
+        await clearAccessKeyState();
+      }
       if (clearOnFailure) {
         await clearLoginState();
       }
@@ -105,6 +108,17 @@ class TvSessionController extends GetxController {
     );
     await Request.cookieManager.cookieJar.deleteAll();
     Request.dio.options.headers['cookie'] = '';
+  }
+
+  Future<void> clearAccessKeyState({bool showToast = false}) async {
+    await GStrorage.localCache.put(
+      LocalCacheKey.accessKey,
+      <String, Object>{'mid': -1, 'value': ''},
+    );
+    refreshTick.value++;
+    if (showToast) {
+      SmartDialog.showToast('TV 登录凭证已失效，请重新登录');
+    }
   }
 
   Future<void> applyLoginUser(UserInfoData user) async {

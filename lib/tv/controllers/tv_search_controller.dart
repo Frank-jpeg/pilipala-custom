@@ -4,6 +4,7 @@ import 'package:pilipala/http/search.dart';
 import 'package:pilipala/models/common/search_type.dart';
 import 'package:pilipala/models/search/hot.dart';
 import 'package:pilipala/models/search/result.dart';
+import 'package:pilipala/tv/controllers/tv_session_controller.dart';
 
 class TvSearchController extends GetxController {
   final RxString keyword = ''.obs;
@@ -12,6 +13,7 @@ class TvSearchController extends GetxController {
   final RxBool loadingHot = false.obs;
   final RxBool loadingSearch = false.obs;
   final RxnString error = RxnString();
+  final RxnString resultSource = RxnString();
 
   // 递增序号，用于丢弃过期搜索响应，避免慢的旧请求覆盖新请求的结果。
   int _searchSeq = 0;
@@ -37,6 +39,7 @@ class TvSearchController extends GetxController {
     keyword.value = value;
     if (value.isEmpty) {
       results.clear();
+      resultSource.value = null;
       return;
     }
     final int seq = ++_searchSeq;
@@ -52,10 +55,12 @@ class TvSearchController extends GetxController {
         return;
       }
       dynamic effectiveRes = tvRes;
+      String source = 'tv';
       if (tvRes is Map && tvRes['status'] == true) {
         final dynamic tvData = tvRes['data'];
         if (tvData is SearchVideoModel &&
             (tvData.list ?? <SearchVideoItemModel>[]).isEmpty) {
+          source = 'webFallback';
           effectiveRes = await SearchHttp.searchByType(
             searchType: SearchType.video,
             keyword: value,
@@ -63,6 +68,18 @@ class TvSearchController extends GetxController {
           );
         }
       } else {
+        if (tvRes is Map && tvRes['authInvalid'] == true) {
+          if (Get.isRegistered<TvSessionController>()) {
+            await Get.find<TvSessionController>()
+                .clearAccessKeyState(showToast: true);
+          }
+          error.value = tvRes['msg']?.toString() ?? 'TV 登录状态无效，请重新登录';
+          SmartDialog.showToast(error.value!);
+          results.clear();
+          resultSource.value = null;
+          return;
+        }
+        source = 'webFallback';
         effectiveRes = await SearchHttp.searchByType(
           searchType: SearchType.video,
           keyword: value,
@@ -83,10 +100,13 @@ class TvSearchController extends GetxController {
         final dynamic data = effectiveRes['data'];
         if (data is SearchVideoModel) {
           results.value = data.list ?? <SearchVideoItemModel>[];
+          resultSource.value = source;
         } else {
           results.clear();
+          resultSource.value = null;
         }
       } else {
+        resultSource.value = null;
         error.value = effectiveRes['msg']?.toString() ?? '搜索失败';
         SmartDialog.showToast(error.value!);
       }
