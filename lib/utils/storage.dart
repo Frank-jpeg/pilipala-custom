@@ -116,6 +116,7 @@ class SettingBoxKey {
 
       /// 其他
       autoUpdate = 'autoUpdate',
+      tvRecommendPreviewAutoplayEnable = 'tvRecommendPreviewAutoplayEnable',
       tvAutoFullscreenEnable = 'tvAutoFullscreenEnable',
       tvAutoFullscreenDelay = 'tvAutoFullscreenDelay',
       tvPlayerThinProgressEnable = 'tvPlayerThinProgressEnable',

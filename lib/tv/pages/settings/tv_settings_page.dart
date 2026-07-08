@@ -35,10 +35,31 @@ class TvSettingsPage extends StatelessWidget {
               ),
               const SizedBox(height: 40),
               _SettingRow(
+                title: '推荐页自动预览/连播',
+                subtitle: controller.recommendPreviewAutoplayEnabled.value
+                    ? '开启后，推荐页焦点停留会自动播放预览'
+                    : '关闭后，推荐页默认暂停，只显示封面，按 OK 才播放',
+                value: controller.recommendPreviewAutoplayEnabled.value
+                    ? '已开启'
+                    : '已关闭',
+                actions: <Widget>[
+                  TvFocusableButton(
+                    label: controller.recommendPreviewAutoplayEnabled.value
+                        ? '关闭'
+                        : '开启',
+                    icon: controller.recommendPreviewAutoplayEnabled.value
+                        ? Icons.toggle_on
+                        : Icons.toggle_off,
+                    onPressed: controller.toggleRecommendPreviewAutoplay,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              _SettingRow(
                 title: '推荐页停留自动全屏',
                 subtitle: controller.autoFullscreenEnabled.value
-                    ? '开启后，推荐页停留一段时间会自动进入全屏播放'
-                    : '关闭后，推荐页只会在按 OK 时播放',
+                    ? '仅在推荐页自动预览已开启且正在播放时生效'
+                    : '关闭后，推荐页不会自动进入全屏',
                 value: controller.autoFullscreenEnabled.value ? '已开启' : '已关闭',
                 actions: <Widget>[
                   TvFocusableButton(
@@ -83,6 +104,101 @@ class TvSettingsPage extends StatelessWidget {
                         ? Icons.toggle_on
                         : Icons.toggle_off,
                     onPressed: controller.toggleDanmaku,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 30),
+              const _SectionTitle(title: '弹幕设置'),
+              const SizedBox(height: 18),
+              _SettingRow(
+                title: '显示区域',
+                subtitle: '控制弹幕覆盖屏幕的高度范围',
+                value: controller.danmakuAreaLabel,
+                actions: <Widget>[
+                  TvFocusableButton(
+                    label: '切换',
+                    icon: Icons.crop_free_rounded,
+                    onPressed: controller.cycleDanmakuArea,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              _SettingRow(
+                title: '弹幕速度',
+                subtitle: '数字越小滚动越快，数字越大滚动越慢',
+                value: controller.danmakuDurationLabel,
+                actions: <Widget>[
+                  TvFocusableButton(
+                    label: '切换',
+                    icon: Icons.timer_rounded,
+                    onPressed: controller.cycleDanmakuDuration,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              _SettingRow(
+                title: '字体大小',
+                subtitle: '调整弹幕文字相对默认大小的比例',
+                value: controller.danmakuFontScaleLabel,
+                actions: <Widget>[
+                  TvFocusableButton(
+                    label: '切换',
+                    icon: Icons.format_size_rounded,
+                    onPressed: controller.cycleDanmakuFontScale,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              _SettingRow(
+                title: '不透明度',
+                subtitle: '控制弹幕文字透明度',
+                value: controller.danmakuOpacityLabel,
+                actions: <Widget>[
+                  TvFocusableButton(
+                    label: '切换',
+                    icon: Icons.opacity_rounded,
+                    onPressed: controller.cycleDanmakuOpacity,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              _SettingRow(
+                title: '描边粗细',
+                subtitle: '控制弹幕文字描边宽度',
+                value: controller.danmakuStrokeLabel,
+                actions: <Widget>[
+                  TvFocusableButton(
+                    label: '切换',
+                    icon: Icons.border_color_rounded,
+                    onPressed: controller.cycleDanmakuStroke,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              _SettingRow(
+                title: '按类型屏蔽',
+                subtitle: '开关顶部、滚动、底部和彩色弹幕屏蔽',
+                value: '自定义',
+                actions: <Widget>[
+                  TvFocusableButton(
+                    label: _danmakuBlockLabel(controller, 5, '顶部'),
+                    icon: Icons.vertical_align_top_rounded,
+                    onPressed: () => controller.toggleDanmakuBlock(5),
+                  ),
+                  TvFocusableButton(
+                    label: _danmakuBlockLabel(controller, 2, '滚动'),
+                    icon: Icons.subject_rounded,
+                    onPressed: () => controller.toggleDanmakuBlock(2),
+                  ),
+                  TvFocusableButton(
+                    label: _danmakuBlockLabel(controller, 4, '底部'),
+                    icon: Icons.vertical_align_bottom_rounded,
+                    onPressed: () => controller.toggleDanmakuBlock(4),
+                  ),
+                  TvFocusableButton(
+                    label: _danmakuBlockLabel(controller, 6, '彩色'),
+                    icon: Icons.palette_rounded,
+                    onPressed: () => controller.toggleDanmakuBlock(6),
                   ),
                 ],
               ),
@@ -166,6 +282,15 @@ class TvSettingsPage extends StatelessWidget {
   }
 }
 
+String _danmakuBlockLabel(
+  TvSettingsController controller,
+  int type,
+  String label,
+) {
+  controller.danmakuBlockTypes.length;
+  return controller.isDanmakuBlockEnabled(type) ? '$label：开' : '$label：关';
+}
+
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle({required this.title});
 
@@ -246,7 +371,14 @@ class _SettingRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 24),
-          Row(mainAxisSize: MainAxisSize.min, children: actions),
+          Flexible(
+            child: Wrap(
+              spacing: 14,
+              runSpacing: 10,
+              alignment: WrapAlignment.end,
+              children: actions,
+            ),
+          ),
         ],
       ),
     );

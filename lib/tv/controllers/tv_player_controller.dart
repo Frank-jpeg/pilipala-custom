@@ -11,6 +11,7 @@ import 'package:pilipala/plugin/pl_player/models/play_status.dart';
 import 'package:pilipala/tv/controllers/tv_anti_addiction_controller.dart';
 import 'package:pilipala/tv/controllers/tv_home_controller.dart';
 import 'package:pilipala/tv/models/tv_video_card_data.dart';
+import 'package:pilipala/utils/global_data_cache.dart';
 import 'package:pilipala/utils/storage.dart';
 
 class TvPlayerController extends GetxController {
@@ -105,6 +106,7 @@ class TvPlayerController extends GetxController {
         SettingBoxKey.enableShowDanmaku,
         defaultValue: true,
       ) as bool;
+      _reloadDanmakuOptionsFromStorage();
       final dynamic res = await VideoHttp.videoUrl(
         bvid: bvid,
         cid: resolvedCid,
@@ -368,9 +370,50 @@ class TvPlayerController extends GetxController {
 
   Future<void> _cacheDanmakuOption() async {
     await player.cacheDanmakuOption();
+    _syncDanmakuGlobalCache();
     danmakuOptionVersion.value++;
     menuVisible.value = true;
     controlsVisible.value = true;
+  }
+
+  void _reloadDanmakuOptionsFromStorage() {
+    player.blockTypes = List<dynamic>.from(
+      GStrorage.localCache.get(
+        LocalCacheKey.danmakuBlockType,
+        defaultValue: <dynamic>[],
+      ) as List,
+    );
+    player.showArea = _readDouble(LocalCacheKey.danmakuShowArea, 0.5);
+    player.danmakuDurationVal = _readDouble(LocalCacheKey.danmakuDuration, 4.0);
+    player.fontSizeVal = _readDouble(LocalCacheKey.danmakuFontScale, 1.0);
+    player.opacityVal = _readDouble(LocalCacheKey.danmakuOpacity, 1.0);
+    player.strokeWidth = _readDouble(LocalCacheKey.strokeWidth, 1.5);
+    _syncDanmakuGlobalCache();
+  }
+
+  double _readDouble(String key, double defaultValue) {
+    final dynamic value = GStrorage.localCache.get(
+      key,
+      defaultValue: defaultValue,
+    );
+    if (value is double) {
+      return value;
+    }
+    if (value is num) {
+      return value.toDouble();
+    }
+    return double.tryParse(value?.toString() ?? '') ?? defaultValue;
+  }
+
+  void _syncDanmakuGlobalCache() {
+    final GlobalDataCache cache = GlobalDataCache();
+    cache.isOpenDanmu = player.isOpenDanmu.value;
+    cache.blockTypes = List<dynamic>.from(player.blockTypes);
+    cache.showArea = player.showArea;
+    cache.danmakuDurationVal = player.danmakuDurationVal;
+    cache.fontSizeVal = player.fontSizeVal;
+    cache.opacityVal = player.opacityVal;
+    cache.strokeWidth = player.strokeWidth;
   }
 
   Future<void> cyclePlaybackSpeed() async {

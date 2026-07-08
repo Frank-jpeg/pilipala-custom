@@ -55,6 +55,7 @@ class TvHomeController extends GetxController {
   Timer? _previewTimer;
   Player? _previewPlayer;
   VideoController? _previewVideoController;
+  StreamSubscription<bool>? _previewPlayingSub;
   Worker? _loginWorker;
   int _fullscreenGeneration = 0;
   int _previewGeneration = 0;
@@ -81,12 +82,22 @@ class TvHomeController extends GetxController {
       isRecommendTab &&
       recommendVideos.isNotEmpty;
 
+  bool get recommendPreviewAutoplayEnabled => GStrorage.setting.get(
+        SettingBoxKey.tvRecommendPreviewAutoplayEnable,
+        defaultValue: false,
+      ) as bool;
+
+  bool get _previewIsPlaying =>
+      previewReady.value &&
+      previewBvid.value == selectedVideo?.bvid &&
+      (_previewPlayer?.state.playing ?? false);
+
   bool get autoFullscreenEnabled => GStrorage.setting
       .get(SettingBoxKey.tvAutoFullscreenEnable, defaultValue: true) as bool;
 
   int get autoFullscreenDelaySeconds {
     final int value = GStrorage.setting
-        .get(SettingBoxKey.tvAutoFullscreenDelay, defaultValue: 15) as int;
+        .get(SettingBoxKey.tvAutoFullscreenDelay, defaultValue: 5) as int;
     return value.clamp(5, 60);
   }
 
@@ -402,9 +413,11 @@ class TvHomeController extends GetxController {
     final TvVideoCardData? data = selectedVideo;
     if (!_recommendStageActive ||
         !isRecommendTab ||
+        !recommendPreviewAutoplayEnabled ||
         data == null ||
         data.bvid.isEmpty ||
         data.cid <= 0) {
+      cancelAutoFullscreen();
       previewReady.value = false;
       previewPreparing.value = false;
       previewError.value = null;
@@ -458,6 +471,12 @@ class TvHomeController extends GetxController {
         pausePlayback: pausePreview,
         resumePlayback: () => schedulePreviewAutoplay(immediate: true),
       );
+      scheduleAutoFullscreen();
+      unawaited(Future<void>.delayed(const Duration(milliseconds: 250), () {
+        if (!isClosed && generation == _previewGeneration) {
+          scheduleAutoFullscreen();
+        }
+      }));
     } catch (_) {
       if (generation == _previewGeneration) {
         previewReady.value = false;
@@ -509,6 +528,13 @@ class TvHomeController extends GetxController {
         bufferSize: 5 * 1024 * 1024,
       ),
     );
+    _previewPlayingSub ??= player.stream.playing.listen((bool playing) {
+      if (playing) {
+        scheduleAutoFullscreen();
+      } else {
+        cancelAutoFullscreen();
+      }
+    });
     _previewVideoController ??= VideoController(
       player,
       configuration: const VideoControllerConfiguration(
@@ -541,7 +567,10 @@ class TvHomeController extends GetxController {
 
   void scheduleAutoFullscreen() {
     cancelAutoFullscreen();
-    if (!autoFullscreenEnabled || !_canAutoActOnRecommend) {
+    if (!autoFullscreenEnabled ||
+        !_canAutoActOnRecommend ||
+        !recommendPreviewAutoplayEnabled ||
+        !_previewIsPlaying) {
       return;
     }
     final int generation = ++_fullscreenGeneration;
@@ -550,7 +579,9 @@ class TvHomeController extends GetxController {
           _fullscreenTimer != null ||
           generation != _fullscreenGeneration ||
           !autoFullscreenEnabled ||
-          !_canAutoActOnRecommend) {
+          !_canAutoActOnRecommend ||
+          !recommendPreviewAutoplayEnabled ||
+          !_previewIsPlaying) {
         return;
       }
       autoFullscreenArmed.value = true;
@@ -558,7 +589,9 @@ class TvHomeController extends GetxController {
           Timer(Duration(seconds: autoFullscreenDelaySeconds), () {
         if (generation != _fullscreenGeneration ||
             !autoFullscreenEnabled ||
-            !_canAutoActOnRecommend) {
+            !_canAutoActOnRecommend ||
+            !recommendPreviewAutoplayEnabled ||
+            !_previewIsPlaying) {
           autoFullscreenArmed.value = false;
           return;
         }
@@ -581,8 +614,13 @@ class TvHomeController extends GetxController {
       pausePreview();
       return;
     }
+    if (!recommendPreviewAutoplayEnabled) {
+      cancelAutoFullscreen();
+      pausePreview();
+      return;
+    }
     schedulePreviewAutoplay(immediate: true);
-    if (autoFullscreenEnabled && items.isNotEmpty) {
+    if (autoFullscreenEnabled && _previewIsPlaying) {
       scheduleAutoFullscreen();
     } else {
       cancelAutoFullscreen();
@@ -823,6 +861,7 @@ class TvHomeController extends GetxController {
     cancelAutoFullscreen();
     _previewTimer?.cancel();
     _antiAddiction.stopCounting();
+    _previewPlayingSub?.cancel();
     _previewPlayer?.dispose();
     _loginWorker?.dispose();
     super.onClose();
