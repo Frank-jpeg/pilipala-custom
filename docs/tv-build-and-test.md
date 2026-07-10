@@ -33,7 +33,7 @@ The TV app uses a single left navigation shell for both home channels and routed
 - idle on a recommendation can auto-enter full-screen playback and resumes from the current homepage preview position when available
 - `历史` / `收藏` / `稍后再看` reuse the same stage layout but do not auto-preview or auto-enter full-screen
 - `历史` / `收藏` / `稍后再看` require login and show an inline login prompt when opened without an account session
-- pressing Back from the TV shell shows an exit confirmation dialog before closing the app
+- pressing Back from the TV shell shows an exit confirmation dialog before closing the app, with initial focus on the exit action
 - from recommendation playback, DPAD up/down switches previous/next recommendation
 - from playback, the remote Menu key opens `播放设置` for danmaku on/off, playback speed, thin progress bar, danmaku display area, duration/speed, font size, opacity, stroke width, and top/scroll/bottom/color blocking
 - `设置` can enable/disable idle auto-fullscreen and change the delay from 5 to 60 seconds
@@ -179,7 +179,8 @@ Use the latest `tv` branch artifact from GitHub Actions or the local arm64 relea
 22. Temporarily reduce the single-session limit during manual testing if needed, then confirm recommendation preview and full-screen playback both trigger the lock page.
 23. Confirm Back cannot bypass the anti-addiction lock page.
 24. Confirm parent PIN unlock resumes playback and daily-limit PIN unlock adds only the temporary extra watch time.
-25. Confirm real playback has video and audio.
-26. Test account-only flows after login if needed.
+25. Return to the TV shell, press Back, and confirm the exit dialog initially focuses `退出`; press OK once and confirm the app exits without an extra left/right focus move.
+26. Confirm real playback has video and audio.
+27. Test account-only flows after login if needed.
 
 If real-device playback is black, treat it as a player/play-url compatibility bug and inspect `TvPlayerController` plus the shared `PlPlayerController`/`media_kit` integration first.
