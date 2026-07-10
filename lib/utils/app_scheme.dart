@@ -75,8 +75,12 @@ class PiliSchame {
           break;
         case 'bangumi':
           if (path.startsWith('/season')) {
-            final String seasonId = path.split('/').last;
-            RoutePush.bangumiPush(int.parse(seasonId), null);
+            final int? seasonId = _numericId(path.split('/').last);
+            if (seasonId == null) {
+              _showInvalidLink();
+              return;
+            }
+            RoutePush.bangumiPush(seasonId, null);
           }
           break;
         case 'opus':
@@ -106,8 +110,12 @@ class PiliSchame {
         case 'pgc':
           if (path.contains('ep')) {
             final String lastPathSegment = path.split('/').last;
-            RoutePush.bangumiPush(
-                null, int.parse(lastPathSegment.split('?').first));
+            final int? episodeId = _numericId(lastPathSegment.split('?').first);
+            if (episodeId == null) {
+              _showInvalidLink();
+              return;
+            }
+            RoutePush.bangumiPush(null, episodeId);
           }
           break;
         default:
@@ -170,19 +178,38 @@ class PiliSchame {
       }
       if (path.startsWith('/bangumi')) {
         if (lastPathSegment.contains('ss')) {
-          RoutePush.bangumiPush(Utils.matchNum(lastPathSegment).first, null);
+          final int? seasonId = _numericId(lastPathSegment);
+          if (seasonId == null) {
+            _showInvalidLink();
+            return;
+          }
+          RoutePush.bangumiPush(seasonId, null);
         }
         if (lastPathSegment.contains('ep')) {
-          RoutePush.bangumiPush(null, Utils.matchNum(lastPathSegment).first);
+          final int? episodeId = _numericId(lastPathSegment);
+          if (episodeId == null) {
+            _showInvalidLink();
+            return;
+          }
+          RoutePush.bangumiPush(null, episodeId);
         }
       } else if (path.startsWith('/BV')) {
         final String bvid = path.split('?').first.split('/').last;
         _videoPush(null, bvid);
       } else if (path.startsWith('/av')) {
-        _videoPush(Utils.matchNum(path.split('?').first).first, null);
+        final int? aid = _numericId(path.split('?').first);
+        if (aid == null) {
+          _showInvalidLink();
+          return;
+        }
+        _videoPush(aid, null);
       }
     } else if (host.contains('live')) {
-      int roomId = int.parse(path!.split('/').last);
+      final int? roomId = _numericId(path?.split('/').last);
+      if (roomId == null) {
+        _showInvalidLink();
+        return;
+      }
       Get.toNamed(
         '/liveRoom?roomid=$roomId',
         arguments: {'liveItem': null, 'heroTag': roomId.toString()},
@@ -229,9 +256,19 @@ class PiliSchame {
         case 'bangumi':
           print('番剧');
           if (area.startsWith('ep')) {
-            RoutePush.bangumiPush(null, Utils.matchNum(area).first);
+            final int? episodeId = _numericId(area);
+            if (episodeId == null) {
+              _showInvalidLink();
+              return;
+            }
+            RoutePush.bangumiPush(null, episodeId);
           } else if (area.startsWith('ss')) {
-            RoutePush.bangumiPush(Utils.matchNum(area).first, null);
+            final int? seasonId = _numericId(area);
+            if (seasonId == null) {
+              _showInvalidLink();
+              return;
+            }
+            RoutePush.bangumiPush(seasonId, null);
           }
           break;
         case 'video':
@@ -247,7 +284,12 @@ class PiliSchame {
           break;
         case 'read':
           print('专栏');
-          String id = Utils.matchNum(query!['id']!).first.toString();
+          final int? articleId = _numericId(query?['id']);
+          if (articleId == null) {
+            _showInvalidLink();
+            return;
+          }
+          final String id = articleId.toString();
           Get.toNamed('/read', parameters: {
             'url': value.dataString!,
             'title': '',
@@ -282,16 +324,36 @@ class PiliSchame {
   }
 
   static void _handleEpisodePath(String lastPathSegment, String redirectUrl) {
-    final String seasonId = _extractIdFromPath(lastPathSegment);
-    RoutePush.bangumiPush(null, Utils.matchNum(seasonId).first);
+    final int? episodeId = _numericId(_extractIdFromPath(lastPathSegment));
+    if (episodeId == null) {
+      _showInvalidLink();
+      return;
+    }
+    RoutePush.bangumiPush(null, episodeId);
   }
 
   static void _handleSeasonPath(String lastPathSegment, String redirectUrl) {
-    final String seasonId = _extractIdFromPath(lastPathSegment);
-    RoutePush.bangumiPush(Utils.matchNum(seasonId).first, null);
+    final int? seasonId = _numericId(_extractIdFromPath(lastPathSegment));
+    if (seasonId == null) {
+      _showInvalidLink();
+      return;
+    }
+    RoutePush.bangumiPush(seasonId, null);
   }
 
   static String _extractIdFromPath(String lastPathSegment) {
     return lastPathSegment.split('/').last;
+  }
+
+  static int? _numericId(String? value) {
+    if (value == null) {
+      return null;
+    }
+    final RegExpMatch? match = RegExp(r'\d+').firstMatch(value);
+    return match == null ? null : int.tryParse(match.group(0)!);
+  }
+
+  static void _showInvalidLink() {
+    SmartDialog.showToast('链接参数无效');
   }
 }

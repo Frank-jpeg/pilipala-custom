@@ -75,6 +75,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   final RxDouble _brightnessValue = 0.0.obs;
   final RxBool _brightnessIndicator = false.obs;
   Timer? _brightnessTimer;
+  StreamSubscription<double>? _brightnessSubscription;
 
   final RxDouble _volumeValue = 0.0.obs;
   final RxBool _volumeIndicator = false.obs;
@@ -164,11 +165,14 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     Future.microtask(() async {
       try {
         _brightnessValue.value = await ScreenBrightness().current;
-        ScreenBrightness().onCurrentBrightnessChanged.listen((double value) {
-          if (mounted) {
-            _brightnessValue.value = value;
-          }
-        });
+        _brightnessSubscription =
+            ScreenBrightness().onCurrentBrightnessChanged.listen(
+          (double value) {
+            if (mounted) {
+              _brightnessValue.value = value;
+            }
+          },
+        );
       } catch (_) {}
     });
   }
@@ -206,6 +210,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
   @override
   void dispose() {
+    _volumeTimer?.cancel();
+    _brightnessTimer?.cancel();
+    _brightnessSubscription?.cancel();
     animationController.dispose();
     FlutterVolumeController.removeListener();
     super.dispose();

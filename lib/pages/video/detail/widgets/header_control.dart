@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:floating/floating.dart';
@@ -60,6 +61,7 @@ class _HeaderControlState extends State<HeaderControl> {
   late String heroTag;
   late VideoIntroController videoIntroController;
   late VideoDetailData videoDetail;
+  StreamSubscription<bool>? _fullScreenSubscription;
 
   @override
   void initState() {
@@ -73,14 +75,15 @@ class _HeaderControlState extends State<HeaderControl> {
   }
 
   void fullScreenStatusListener() {
-    widget.videoDetailCtr!.plPlayerController.isFullScreen.listen((bool val) {
-      isFullScreen.value = val;
-
-      /// TODO setState() called after dispose()
-      if (mounted) {
-        setState(() {});
-      }
-    });
+    _fullScreenSubscription =
+        widget.videoDetailCtr!.plPlayerController.isFullScreen.listen(
+      (bool val) {
+        isFullScreen.value = val;
+        if (mounted) {
+          setState(() {});
+        }
+      },
+    );
   }
 
   /// 设置面板
@@ -1141,6 +1144,12 @@ class _HeaderControlState extends State<HeaderControl> {
         );
       },
     );
+  }
+
+  @override
+  void dispose() {
+    _fullScreenSubscription?.cancel();
+    super.dispose();
   }
 
   @override

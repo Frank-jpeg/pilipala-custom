@@ -1,5 +1,7 @@
 // ignore_for_file: no_leading_underscores_for_local_identifiers
 
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -20,19 +22,26 @@ class MinePage extends StatefulWidget {
 class _MinePageState extends State<MinePage> {
   final MineController mineController = Get.put(MineController());
   late Future _futureBuilderFuture;
+  StreamSubscription<bool>? _loginSubscription;
 
   @override
   void initState() {
     super.initState();
     _futureBuilderFuture = mineController.queryUserInfo();
 
-    mineController.userLogin.listen((status) {
+    _loginSubscription = mineController.userLogin.listen((bool _) {
       if (mounted) {
         setState(() {
           _futureBuilderFuture = mineController.queryUserInfo();
         });
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _loginSubscription?.cancel();
+    super.dispose();
   }
 
   @override

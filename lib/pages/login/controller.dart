@@ -152,7 +152,7 @@ class LoginPageController extends GetxController {
       var res = await LoginHttp.loginInByWebSmsCode(
         cid: 86,
         tel: tel,
-        code: webSmsCode,
+        code: webSmsCode.toString(),
         captchaKey: captchaKey,
       );
       if (res['status']) {

@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:hive/hive.dart';
+import 'package:pilipala/http/init.dart';
 import 'package:pilipala/http/user.dart';
 import 'package:pilipala/pages/dynamics/index.dart';
 import 'package:pilipala/pages/home/index.dart';
@@ -19,14 +20,16 @@ import 'package:uuid/uuid.dart';
 class LoginUtils {
   static Future refreshLoginStatus(bool status) async {
     try {
-      // 更改我的页面登录状态
-      await Get.find<MineController>().resetUserInfo();
+      final MineController mineCtr = Get.find<MineController>();
+      if (!status) {
+        Request.clearAuthHeaders();
+        await mineCtr.resetUserInfo();
+      }
 
       // 更改主页登录状态
       HomeController homeCtr = Get.find<HomeController>();
       homeCtr.updateLoginStatus(status);
 
-      MineController mineCtr = Get.find<MineController>();
       mineCtr.userLogin.value = status;
 
       DynamicsController dynamicsCtr = Get.find<DynamicsController>();
@@ -80,6 +83,7 @@ class LoginUtils {
             userInfoCache = await Hive.openBox('userInfo');
           }
           await userInfoCache.put('userInfoCache', result['data']);
+          Request.setOptionsHeaders(result['data'], true);
 
           final HomeController homeCtr = Get.find<HomeController>();
           homeCtr.updateLoginStatus(true);

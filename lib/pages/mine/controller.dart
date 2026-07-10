@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:hive/hive.dart';
+import 'package:pilipala/http/init.dart';
 import 'package:pilipala/http/user.dart';
 import 'package:pilipala/models/common/theme_type.dart';
 import 'package:pilipala/models/user/info.dart';
@@ -71,6 +72,7 @@ class MineController extends GetxController {
   }
 
   Future resetUserInfo() async {
+    Request.clearAuthHeaders();
     userInfo.value = UserInfoData();
     userStat.value = UserStat();
     userInfoCache.delete('userInfoCache');

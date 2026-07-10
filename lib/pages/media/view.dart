@@ -19,6 +19,7 @@ class _MediaPageState extends State<MediaPage>
     with AutomaticKeepAliveClientMixin {
   late MediaController mediaController;
   late Future _futureBuilderFuture;
+  StreamSubscription<bool>? _loginSubscription;
 
   @override
   bool get wantKeepAlive => true;
@@ -28,16 +29,18 @@ class _MediaPageState extends State<MediaPage>
     super.initState();
     mediaController = Get.put(MediaController());
     _futureBuilderFuture = mediaController.queryFavFolder();
-    mediaController.userLogin.listen((status) {
-      setState(() {
-        _futureBuilderFuture = mediaController.queryFavFolder();
-      });
+    _loginSubscription = mediaController.userLogin.listen((bool _) {
+      if (mounted) {
+        setState(() {
+          _futureBuilderFuture = mediaController.queryFavFolder();
+        });
+      }
     });
   }
 
   @override
   void dispose() {
-    mediaController.scrollController.removeListener(() {});
+    _loginSubscription?.cancel();
     super.dispose();
   }
 

@@ -36,6 +36,8 @@ class _DynamicsPageState extends State<DynamicsPage>
   late Future _futureBuilderFutureUp;
   Box userInfoCache = GStrorage.userInfo;
   late ScrollController scrollController;
+  late final VoidCallback _scrollListener;
+  StreamSubscription<bool>? _loginSubscription;
 
   @override
   bool get wantKeepAlive => true;
@@ -46,20 +48,19 @@ class _DynamicsPageState extends State<DynamicsPage>
     _futureBuilderFuture = _dynamicsController.queryFollowDynamic();
     _futureBuilderFutureUp = _dynamicsController.queryFollowUp();
     scrollController = _dynamicsController.scrollController;
-    scrollController.addListener(
-      () async {
-        if (scrollController.position.pixels >=
-            scrollController.position.maxScrollExtent - 200) {
-          EasyThrottle.throttle(
-              'queryFollowDynamic', const Duration(seconds: 1), () {
-            _dynamicsController.queryFollowDynamic(type: 'onLoad');
-          });
-        }
-        handleScrollEvent(scrollController);
-      },
-    );
+    _scrollListener = () {
+      if (scrollController.position.pixels >=
+          scrollController.position.maxScrollExtent - 200) {
+        EasyThrottle.throttle('queryFollowDynamic', const Duration(seconds: 1),
+            () {
+          _dynamicsController.queryFollowDynamic(type: 'onLoad');
+        });
+      }
+      handleScrollEvent(scrollController);
+    };
+    scrollController.addListener(_scrollListener);
 
-    _dynamicsController.userLogin.listen((status) {
+    _loginSubscription = _dynamicsController.userLogin.listen((bool _) {
       if (mounted) {
         setState(() {
           _futureBuilderFuture = _dynamicsController.queryFollowDynamic();
@@ -71,7 +72,8 @@ class _DynamicsPageState extends State<DynamicsPage>
 
   @override
   void dispose() {
-    scrollController.removeListener(() {});
+    scrollController.removeListener(_scrollListener);
+    _loginSubscription?.cancel();
     super.dispose();
   }
 

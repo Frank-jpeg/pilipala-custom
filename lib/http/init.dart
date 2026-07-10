@@ -87,39 +87,53 @@ class Request {
   }
 
   static Future<String> getBuvid() async {
-    if (buvid != null) {
+    if (buvid?.isNotEmpty == true) {
       return buvid!;
     }
 
     final List<Cookie> cookies = await cookieManager.cookieJar
         .loadForRequest(Uri.parse(HttpString.baseUrl));
-    buvid = cookies.firstWhere((cookie) => cookie.name == 'buvid3').value;
-    if (buvid == null) {
+    for (final Cookie cookie in cookies) {
+      if (cookie.name == 'buvid3' && cookie.value.isNotEmpty) {
+        buvid = cookie.value;
+        break;
+      }
+    }
+    if (buvid?.isNotEmpty != true) {
       try {
-        var result = await Request().get(
+        final Response<dynamic> result = await Request().get(
           "${HttpString.apiBaseUrl}/x/frontend/finger/spi",
         );
-        buvid = result["data"]["b_3"].toString();
+        final dynamic responseData = result.data;
+        if (responseData is Map && responseData['data'] is Map) {
+          buvid = responseData['data']['b_3']?.toString() ?? '';
+        }
       } catch (e) {
-        // 处理请求错误
         buvid = '';
         print("Error fetching buvid: $e");
       }
     }
 
-    return buvid!;
+    return buvid ?? '';
   }
 
-  static setOptionsHeaders(userInfo, bool status) {
+  static void setOptionsHeaders(dynamic userInfo, bool status) {
     if (status) {
       dio.options.headers['x-bili-mid'] = userInfo.mid.toString();
       dio.options.headers['x-bili-aurora-eid'] =
           IdUtils.genAuroraEid(userInfo.mid);
+    } else {
+      clearAuthHeaders();
     }
     dio.options.headers['env'] = 'prod';
     dio.options.headers['app-key'] = 'android64';
     dio.options.headers['x-bili-aurora-zone'] = 'sh001';
     dio.options.headers['referer'] = 'https://www.bilibili.com/';
+  }
+
+  static void clearAuthHeaders() {
+    dio.options.headers.remove('x-bili-mid');
+    dio.options.headers.remove('x-bili-aurora-eid');
   }
 
   static Future buvidActivate() async {
@@ -190,8 +204,6 @@ class Request {
             // return 'PROXY host:port';
             return 'PROXY $systemProxyHost:$systemProxyPort';
           };
-          client.badCertificateCallback =
-              (X509Certificate cert, String host, int port) => true;
           return client;
         },
       );
@@ -217,35 +229,31 @@ class Request {
   /*
    * get请求
    */
-  get(url, {data, options, cancelToken, extra}) async {
+  get(url, {data, Options? options, cancelToken, extra}) async {
     Response response;
-    final Options options = Options();
-    ResponseType resType = ResponseType.json;
+    final Options requestOptions = options ?? Options();
+    ResponseType resType = requestOptions.responseType ?? ResponseType.json;
     if (extra != null) {
-      resType = extra!['resType'] ?? ResponseType.json;
+      resType = extra['resType'] ?? ResponseType.json;
       if (extra['ua'] != null) {
-        options.headers = {'user-agent': headerUa(type: extra['ua'])};
+        requestOptions.headers = <String, dynamic>{
+          ...?requestOptions.headers,
+          'user-agent': headerUa(type: extra['ua']),
+        };
       }
     }
-    options.responseType = resType;
+    requestOptions.responseType = resType;
 
     try {
       response = await dio.get(
         url,
         queryParameters: data,
-        options: options,
+        options: requestOptions,
         cancelToken: cancelToken,
       );
       return response;
     } on DioException catch (e) {
-      Response errResponse = Response(
-        data: {
-          'message': await ApiInterceptor.dioError(e)
-        }, // 将自定义 Map 数据赋值给 Response 的 data 属性
-        statusCode: 200,
-        requestOptions: RequestOptions(),
-      );
-      return errResponse;
+      return _errorResponse(e);
     }
   }
 
@@ -267,15 +275,23 @@ class Request {
       // print('post success: ${response.data}');
       return response;
     } on DioException catch (e) {
-      Response errResponse = Response(
-        data: {
-          'message': await ApiInterceptor.dioError(e)
-        }, // 将自定义 Map 数据赋值给 Response 的 data 属性
-        statusCode: 200,
-        requestOptions: RequestOptions(),
-      );
-      return errResponse;
+      return _errorResponse(e);
     }
+  }
+
+  static Future<Response<dynamic>> _errorResponse(DioException error) async {
+    final Response<dynamic>? response = error.response;
+    if (response != null) {
+      return response;
+    }
+    return Response<dynamic>(
+      data: <String, dynamic>{
+        'code': -1,
+        'message': await ApiInterceptor.dioError(error),
+      },
+      statusCode: 599,
+      requestOptions: error.requestOptions,
+    );
   }
 
   /*

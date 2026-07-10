@@ -108,6 +108,7 @@ class TvSessionController extends GetxController {
     );
     await Request.cookieManager.cookieJar.deleteAll();
     Request.dio.options.headers['cookie'] = '';
+    Request.clearAuthHeaders();
   }
 
   Future<void> clearAccessKeyState({bool showToast = false}) async {
@@ -127,6 +128,7 @@ class TvSessionController extends GetxController {
       userInfoCache = await Hive.openBox<dynamic>('userInfo');
     }
     await userInfoCache.put('userInfoCache', user);
+    Request.setOptionsHeaders(user, true);
     userInfo.value = user;
     isLogin.value = true;
     refreshTick.value++;

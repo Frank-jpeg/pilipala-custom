@@ -16,6 +16,7 @@ class _LiveDlnaPageState extends State<LiveDlnaPage> {
   final Map<String, DLNADevice> _deviceList = {};
   final DLNAManager searcher = DLNAManager();
   late final Timer stopSearchTimer;
+  StreamSubscription<dynamic>? _deviceSubscription;
   String selectDeviceKey = '';
   bool isSearching = true;
 
@@ -23,20 +24,21 @@ class _LiveDlnaPageState extends State<LiveDlnaPage> {
 
   @override
   void initState() {
+    super.initState();
     stopSearchTimer = Timer(const Duration(seconds: 20), () {
       setState(() => isSearching = false);
       searcher.stop();
     });
     searcher.stop();
     startSearch();
-    super.initState();
   }
 
   @override
   void dispose() {
-    super.dispose();
+    _deviceSubscription?.cancel();
     searcher.stop();
     stopSearchTimer.cancel();
+    super.dispose();
   }
 
   void startSearch() async {
@@ -47,7 +49,15 @@ class _LiveDlnaPageState extends State<LiveDlnaPage> {
     setState(() {});
     // start search server
     final m = await searcher.start();
-    m.devices.stream.listen((deviceList) {
+    if (!mounted) {
+      searcher.stop();
+      return;
+    }
+    await _deviceSubscription?.cancel();
+    _deviceSubscription = m.devices.stream.listen((deviceList) {
+      if (!mounted) {
+        return;
+      }
       deviceList.forEach((key, value) {
         _deviceList[key] = value;
       });

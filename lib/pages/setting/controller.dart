@@ -64,6 +64,7 @@ class SettingController extends GetxController {
                 // 清空cookie
                 await Request.cookieManager.cookieJar.deleteAll();
                 Request.dio.options.headers['cookie'] = '';
+                Request.clearAuthHeaders();
 
                 // 清空本地存储的用户标识
                 userInfoCache.put('userInfoCache', null);
