@@ -278,6 +278,7 @@ class _TvShellPageState extends State<TvShellPage> {
             child: const Text('取消'),
           ),
           TextButton(
+            autofocus: true,
             onPressed: () => Get.back(result: true),
             child: const Text('退出'),
           ),
