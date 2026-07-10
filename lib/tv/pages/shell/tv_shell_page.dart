@@ -10,7 +10,7 @@ import 'package:pilipala/tv/controllers/tv_session_controller.dart';
 import 'package:pilipala/tv/models/tv_video_card_data.dart';
 import 'package:pilipala/tv/tv_routes.dart';
 import 'package:pilipala/tv/utils/tv_formatters.dart';
-import 'package:pilipala/tv/widgets/tv_left_nav.dart';
+import 'package:pilipala/tv/widgets/tv_top_nav.dart';
 
 class TvShellPage extends StatefulWidget {
   const TvShellPage({super.key});
@@ -20,14 +20,18 @@ class TvShellPage extends StatefulWidget {
 }
 
 class _TvShellPageState extends State<TvShellPage> {
-  static const int _navItemCount = 8;
+  static const int _shortcutCount = 4;
+  static const int _tabCount = 4;
 
   final TvHomeController _controller = Get.put(TvHomeController());
   final FocusNode _homeFocusNode = FocusNode();
-  final List<FocusNode> _navFocusNodes =
-      List<FocusNode>.generate(_navItemCount, (_) => FocusNode());
+  final List<FocusNode> _shortcutFocusNodes =
+      List<FocusNode>.generate(_shortcutCount, (_) => FocusNode());
+  final List<FocusNode> _tabFocusNodes =
+      List<FocusNode>.generate(_tabCount, (_) => FocusNode());
 
-  int _selectedNavIndex = 0;
+  int _selectedTabIndex = 0;
+  int _lastShortcutIndex = 0;
   bool _homeFocused = true;
 
   @override
@@ -42,79 +46,68 @@ class _TvShellPageState extends State<TvShellPage> {
       },
       child: Scaffold(
         backgroundColor: const Color(0xFF07101E),
-        body: Row(
+        body: Column(
           children: <Widget>[
             Obx(
-              () => TvLeftNav(
-                selectedIndex: _selectedNavIndex,
-                focusNodes: _navFocusNodes,
-                items: <TvNavItem>[
-                  TvNavItem(
-                    label: '推荐',
-                    icon: Icons.home_outlined,
-                    onTap: () {
-                      setState(() {
-                        _selectedNavIndex = 0;
-                      });
-                      unawaited(_switchHomeTab(TvHomeTab.recommend));
-                    },
-                  ),
-                  TvNavItem(
-                    label: '历史',
-                    icon: Icons.history,
-                    onTap: () {
-                      setState(() {
-                        _selectedNavIndex = 1;
-                      });
-                      unawaited(_switchHomeTab(TvHomeTab.history));
-                    },
-                  ),
-                  TvNavItem(
-                    label: '收藏',
-                    icon: Icons.star_border,
-                    onTap: () {
-                      setState(() {
-                        _selectedNavIndex = 2;
-                      });
-                      unawaited(_switchHomeTab(TvHomeTab.favorite));
-                    },
-                  ),
-                  TvNavItem(
-                    label: '稍后再看',
-                    icon: Icons.watch_later_outlined,
-                    onTap: () {
-                      setState(() {
-                        _selectedNavIndex = 3;
-                      });
-                      unawaited(_switchHomeTab(TvHomeTab.watchLater));
-                    },
-                  ),
-                  TvNavItem(
+              () => TvTopNav(
+                selectedTabIndex: _selectedTabIndex,
+                shortcutFocusNodes: _shortcutFocusNodes,
+                tabFocusNodes: _tabFocusNodes,
+                onShortcutKey: _handleShortcutKey,
+                onTabKey: _handleTabKey,
+                shortcuts: <TvTopNavItem>[
+                  TvTopNavItem(
                     label: '搜索',
                     icon: Icons.search,
                     onTap: () => unawaited(
-                      _openNamed(TvRoutes.search, returnFocusIndex: 4),
+                      _openNamed(TvRoutes.search, returnFocusIndex: 0),
                     ),
                   ),
-                  TvNavItem(
+                  TvTopNavItem(
                     label: '媒体库',
                     icon: Icons.video_library_outlined,
                     onTap: () => unawaited(
-                      _openNamed(TvRoutes.library, returnFocusIndex: 5),
+                      _openNamed(TvRoutes.library, returnFocusIndex: 1),
                     ),
                   ),
-                  TvNavItem(
+                  TvTopNavItem(
                     label: session.isLogin.value ? '我的' : '登录',
                     icon: Icons.account_circle_outlined,
                     onTap: () => unawaited(
-                      _openNamed(TvRoutes.login, returnFocusIndex: 6),
+                      _openNamed(TvRoutes.login, returnFocusIndex: 2),
                     ),
                   ),
-                  TvNavItem(
+                  TvTopNavItem(
                     label: '设置',
                     icon: Icons.settings_outlined,
                     onTap: () => unawaited(
-                      _openNamed(TvRoutes.settings, returnFocusIndex: 7),
+                      _openNamed(TvRoutes.settings, returnFocusIndex: 3),
+                    ),
+                  ),
+                ],
+                tabs: <TvTopNavItem>[
+                  TvTopNavItem(
+                    label: '推荐',
+                    onTap: () => unawaited(
+                      _switchHomeTab(TvHomeTab.recommend, focusContent: true),
+                    ),
+                  ),
+                  TvTopNavItem(
+                    label: '历史',
+                    onTap: () => unawaited(
+                      _switchHomeTab(TvHomeTab.history, focusContent: true),
+                    ),
+                  ),
+                  TvTopNavItem(
+                    label: '收藏',
+                    onTap: () => unawaited(
+                      _switchHomeTab(TvHomeTab.favorite, focusContent: true),
+                    ),
+                  ),
+                  TvTopNavItem(
+                    label: '稍后再看',
+                    onTap: () => unawaited(
+                      _switchHomeTab(TvHomeTab.watchLater, focusContent: true),
                     ),
                   ),
                 ],
@@ -125,6 +118,7 @@ class _TvShellPageState extends State<TvShellPage> {
                 focusNode: _homeFocusNode,
                 autofocus: true,
                 onFocusChange: (bool value) {
+                  _controller.markRecommendStageActive(value);
                   if (_homeFocused != value && mounted) {
                     setState(() {
                       _homeFocused = value;
@@ -170,6 +164,8 @@ class _TvShellPageState extends State<TvShellPage> {
         if (_controller.currentVideos.isNotEmpty &&
             _controller.selectedIndex.value > 0) {
           _controller.selectPrevious();
+        } else {
+          _focusSelectedTab();
         }
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowDown:
@@ -183,8 +179,7 @@ class _TvShellPageState extends State<TvShellPage> {
         unawaited(_openSelectedDetail());
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowLeft:
-        _controller.markRecommendStageActive(false);
-        _navFocusNodes[_selectedNavIndex].requestFocus();
+        _focusSelectedTab();
         return KeyEventResult.handled;
       case LogicalKeyboardKey.select:
       case LogicalKeyboardKey.enter:
@@ -195,21 +190,96 @@ class _TvShellPageState extends State<TvShellPage> {
     }
   }
 
-  Future<void> _switchHomeTab(TvHomeTab tab) async {
-    await _controller.switchTab(tab);
-    if (!mounted) {
-      return;
+  KeyEventResult _handleShortcutKey(
+    int index,
+    LogicalKeyboardKey key,
+  ) {
+    switch (key) {
+      case LogicalKeyboardKey.arrowLeft:
+        if (index > 0) {
+          _lastShortcutIndex = index - 1;
+          _shortcutFocusNodes[index - 1].requestFocus();
+        }
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.arrowRight:
+        if (index < _shortcutCount - 1) {
+          _lastShortcutIndex = index + 1;
+          _shortcutFocusNodes[index + 1].requestFocus();
+        }
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.arrowDown:
+        _lastShortcutIndex = index;
+        _focusSelectedTab();
+        return KeyEventResult.handled;
+      default:
+        return KeyEventResult.ignored;
     }
-    setState(() {
-      _selectedNavIndex = tab.index;
-    });
+  }
+
+  KeyEventResult _handleTabKey(int index, LogicalKeyboardKey key) {
+    switch (key) {
+      case LogicalKeyboardKey.arrowLeft:
+        if (index > 0) {
+          _focusAndSelectTab(index - 1);
+        }
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.arrowRight:
+        if (index < _tabCount - 1) {
+          _focusAndSelectTab(index + 1);
+        }
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.arrowUp:
+        _controller.markRecommendStageActive(false);
+        _shortcutFocusNodes[_lastShortcutIndex].requestFocus();
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.arrowDown:
+        _focusContent();
+        return KeyEventResult.handled;
+      default:
+        return KeyEventResult.ignored;
+    }
+  }
+
+  void _focusAndSelectTab(int index) {
+    _controller.markRecommendStageActive(false);
+    _tabFocusNodes[index].requestFocus();
+    unawaited(
+      _switchHomeTab(TvHomeTab.values[index], focusContent: false),
+    );
+  }
+
+  void _focusSelectedTab() {
+    _controller.markRecommendStageActive(false);
+    _tabFocusNodes[_selectedTabIndex].requestFocus();
+  }
+
+  void _focusContent() {
     _controller.markRecommendStageActive(true);
     _homeFocusNode.requestFocus();
   }
 
+  Future<void> _switchHomeTab(
+    TvHomeTab tab, {
+    required bool focusContent,
+  }) async {
+    final Future<void> switching = _controller.switchTab(tab);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _selectedTabIndex = tab.index;
+    });
+    if (focusContent) {
+      _focusContent();
+    } else {
+      _controller.markRecommendStageActive(false);
+    }
+    await switching;
+  }
+
   Future<void> _activateContent() async {
     if (_controller.currentTabNeedsLogin) {
-      await _openNamed(TvRoutes.login, returnFocusIndex: 3);
+      await _openNamed(TvRoutes.login, returnFocusIndex: 2);
       return;
     }
     if (_controller.currentError != null) {
@@ -240,16 +310,17 @@ class _TvShellPageState extends State<TvShellPage> {
   }
 
   Future<void> _openNamed(String route, {required int returnFocusIndex}) async {
+    _lastShortcutIndex = returnFocusIndex;
     _controller.markRecommendStageActive(false);
     await Get.toNamed(route);
     if (!mounted) {
       return;
     }
     setState(() {
-      _selectedNavIndex = _controller.currentTab.value.index;
+      _selectedTabIndex = _controller.currentTab.value.index;
     });
-    _controller.markRecommendStageActive(true);
-    _homeFocusNode.requestFocus();
+    _controller.markRecommendStageActive(false);
+    _shortcutFocusNodes[returnFocusIndex].requestFocus();
   }
 
   void _handleShellBack() {
@@ -296,7 +367,10 @@ class _TvShellPageState extends State<TvShellPage> {
   @override
   void dispose() {
     _homeFocusNode.dispose();
-    for (final FocusNode node in _navFocusNodes) {
+    for (final FocusNode node in _shortcutFocusNodes) {
+      node.dispose();
+    }
+    for (final FocusNode node in _tabFocusNodes) {
       node.dispose();
     }
     super.dispose();
@@ -337,35 +411,13 @@ class _HomeStage extends StatelessWidget {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(30, 30, 30, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                controller.currentTabLabel,
-                style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                    ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                controller.isRecommendTab
-                    ? 'OK 全屏  右键详情  左键返回菜单'
-                    : 'OK 播放  右键详情  左键返回菜单',
-                style: const TextStyle(color: Colors.white70, fontSize: 15),
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: _ContentStage(
-                  controller: controller,
-                  videos: videos,
-                  selectedVideo: selectedVideo,
-                  contentFocused: contentFocused,
-                  onSelectContent: onSelectContent,
-                ),
-              ),
-            ],
+          padding: const EdgeInsets.fromLTRB(26, 8, 26, 20),
+          child: _ContentStage(
+            controller: controller,
+            videos: videos,
+            selectedVideo: selectedVideo,
+            contentFocused: contentFocused,
+            onSelectContent: onSelectContent,
           ),
         ),
       ],
@@ -446,7 +498,7 @@ class _ContentStageState extends State<_ContentStage> {
       return _StateCard(
         icon: Icons.qr_code_2,
         title: '登录后可查看${controller.currentTabLabel}',
-        subtitle: '按 OK 进入登录页  左键返回菜单',
+        subtitle: '按 OK 进入登录页  上键返回频道',
       );
     }
     if (controller.currentLoading) {
@@ -456,7 +508,7 @@ class _ContentStageState extends State<_ContentStage> {
       return _StateCard(
         icon: Icons.error_outline,
         title: controller.currentError!,
-        subtitle: '按 OK 重试  左键返回菜单',
+        subtitle: '按 OK 重试  上键返回频道',
       );
     }
     if (videos.isEmpty || selectedVideo == null) {
@@ -466,7 +518,7 @@ class _ContentStageState extends State<_ContentStage> {
         subtitle: controller.currentTab.value == TvHomeTab.favorite &&
                 (controller.favoriteFolderTitle.value ?? '').isNotEmpty
             ? '当前读取收藏夹：${controller.favoriteFolderTitle.value}'
-            : '左键返回菜单',
+            : '上键返回频道',
       );
     }
     final TvVideoCardData currentVideo = selectedVideo;
@@ -663,48 +715,11 @@ class _HomeVideoRow extends StatelessWidget {
                       style:
                           const TextStyle(color: Colors.white70, fontSize: 13),
                     ),
-                    if (selected) ...<Widget>[
-                      const SizedBox(height: 8),
-                      const Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: <Widget>[
-                          _InlineHint(label: 'OK 全屏观看'),
-                          _InlineHint(label: '右键详情'),
-                        ],
-                      ),
-                    ],
                   ],
                 ),
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _InlineHint extends StatelessWidget {
-  const _InlineHint({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withOpacity(0.18)),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
         ),
       ),
     );
@@ -793,7 +808,7 @@ class _HeroInfo extends StatelessWidget {
                   ),
                   _HintChip(
                     icon: Icons.keyboard_return_rounded,
-                    label: '左键返回菜单',
+                    label: '上键返回频道',
                     compact: compact,
                   ),
                 ],

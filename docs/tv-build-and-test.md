@@ -17,19 +17,20 @@ It is currently a usable MVP for manual TV testing, not a published in-app updat
 - CI APK filename pattern: `pilipala-custom-tv-<version>-<sha>-arm64-v8a.apk`
 - TV flavor launcher icon overrides live in `android/app/src/tv/res/mipmap-*` and currently use a pink `P` mark.
 
-The TV app uses a single left navigation shell for both home channels and routed pages:
+The TV app uses a compact two-row top navigation above the shared content stage:
 
-- left navigation items: `推荐` / `历史` / `收藏` / `稍后再看` / `搜索` / `媒体库` / `登录` or `我的` / `设置`
+- quick actions: `搜索` / `媒体库` / `登录` or `我的` / `设置`
+- home tabs: `推荐` / `历史` / `收藏` / `稍后再看`
 - `推荐` / `历史` / `收藏` / `稍后再看` are home channels and share the same right-side stage
 - `搜索` / `媒体库` / `登录` or `我的` / `设置` remain routed pages
-- the right side no longer has a second quick-action row or channel tab row
+- the combined top header stays near 90 px so the video list and preview keep most of the screen
 - `推荐` section uses the immersive recommendation stage
 - selected recommendation now starts an inline homepage video preview after focus settles, with artwork fallback if preview playback fails
 - DPAD up/down switches recommendations
 - the recommendation list scrolls with the selected item and appends more recommendations near the end of the loaded list
 - OK enters full-screen playback and resumes from the current homepage preview position when available
 - right opens details
-- left returns focus to the left navigation
+- up from the first video returns focus to the selected home tab; left also provides the same safe return path
 - idle on a recommendation can auto-enter full-screen playback and resumes from the current homepage preview position when available
 - `历史` / `收藏` / `稍后再看` reuse the same stage layout but do not auto-preview or auto-enter full-screen
 - `历史` / `收藏` / `稍后再看` require login and show an inline login prompt when opened without an account session
@@ -149,9 +150,9 @@ Use the latest `tv` branch artifact from GitHub Actions or the local arm64 relea
 1. Install the TV APK on a real Android TV or TV box.
 2. Confirm the app appears in the TV launcher.
 3. Confirm the launcher title shows `云视听pilipala` and the icon uses the TV pink `P` mark.
-4. Open the app and confirm the left navigation shell loads with `推荐 / 历史 / 收藏 / 稍后再看 / 搜索 / 媒体库 / 登录|我的 / 设置`.
+4. Open the app and confirm the compact top navigation loads with quick actions `搜索 / 媒体库 / 登录|我的 / 设置` and tabs `推荐 / 历史 / 收藏 / 稍后再看`.
 5. Enter `推荐` and confirm the immersive recommendation stage loads.
-6. Confirm there is no second top quick-action row or channel tab row on the right side.
+6. Confirm the two navigation rows stay within about 90 px, do not wrap, and leave most of the screen for the list and preview.
 7. Confirm the focused recommendation starts autoplaying on the home page after a short delay, with artwork fallback if preview playback fails.
 8. Use DPAD up/down to switch recommendations and confirm the visible list scrolls with the selected item, the preview switches with the selected item, and more recommendations append near the end.
 9. Wait for the configured idle delay and confirm it enters full-screen playback.
@@ -162,9 +163,9 @@ Use the latest `tv` branch artifact from GitHub Actions or the local arm64 relea
 14. Press Back and confirm it returns to the correct previous page:
    - recommendation playback -> recommendation stage
    - detail playback -> detail page
-15. Enter `历史` / `收藏` / `稍后再看` from the left navigation and verify:
+15. Enter `历史` / `收藏` / `稍后再看` from the top tabs and verify:
    - not logged in: the right side shows the inline login prompt without crashing
-   - logged in after phone login: lists load from TV `access_key` APIs, DPAD up/down switches items, OK plays, right opens detail, left returns to the left nav
+   - logged in after phone login: lists load from TV `access_key` APIs, DPAD up/down switches items, OK plays, right opens detail, and up from the first item returns to the selected tab
 16. Enter `登录` and test all login paths:
     - `扫码登录`: scan the TV QR code and confirm the app detects login state.
     - `手机号登录`: use the on-screen 9-key number pad to input an 11-digit phone number, request an SMS code, and if Geetest point-select captcha appears, confirm the DPAD cursor appears, arrow keys move it, and OK can click the requested characters.
