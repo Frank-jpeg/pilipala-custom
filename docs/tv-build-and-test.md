@@ -15,7 +15,7 @@ It is currently a usable MVP for manual TV testing, not a published in-app updat
 - GitHub Actions workflow: `.github/workflows/tv_apk_artifact.yml`
 - CI artifact name: `pilipala-custom-android-tv-arm64`
 - CI APK filename pattern: `pilipala-custom-tv-<version>-<sha>-arm64-v8a.apk`
-- TV flavor launcher icon overrides live in `android/app/src/tv/res/mipmap-*` and use the pink `云视听大电视` mark supplied for the TV flavor.
+- TV flavor launcher icon overrides live in `android/app/src/tv/res/mipmap-*` and use the TV-specific `云视听大电视` icon assets.
 
 The TV app uses a compact two-row top navigation above the shared content stage:
 
@@ -150,7 +150,7 @@ Use the latest `tv` branch artifact from GitHub Actions or the local arm64 relea
 
 1. Install the TV APK on a real Android TV or TV box.
 2. Confirm the app appears in the TV launcher.
-3. Confirm the launcher title shows `云视听大电视` and the icon uses the TV pink `云视听大电视` mark.
+3. Confirm the launcher title shows `云视听大电视` and the icon uses the TV-specific `云视听大电视` assets.
 4. Open the app and confirm the compact top navigation loads with quick actions `搜索 / 媒体库 / 登录|我的 / 设置` and tabs `推荐 / 历史 / 收藏 / 稍后再看`.
 5. Enter `推荐` and confirm the immersive recommendation stage loads.
 6. Confirm the two navigation rows stay within about 90 px, do not wrap, and leave most of the screen for the list and preview.
