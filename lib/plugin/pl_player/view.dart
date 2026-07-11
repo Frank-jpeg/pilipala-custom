@@ -41,6 +41,7 @@ class PLVideoPlayer extends StatefulWidget {
     this.customWidgets,
     this.showEposideCb,
     this.fullScreenCb,
+    this.controlsEnabled = true,
     this.alignment = Alignment.center,
     super.key,
   });
@@ -56,6 +57,7 @@ class PLVideoPlayer extends StatefulWidget {
   final List<Widget>? customWidgets;
   final Function? showEposideCb;
   final Function? fullScreenCb;
+  final bool controlsEnabled;
   final Alignment? alignment;
 
   @override
@@ -637,7 +639,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           bottom: 15,
           child: GestureDetector(
             onTap: () {
-              _.controls = !_.showControls.value;
+              if (widget.controlsEnabled) {
+                _.controls = !_.showControls.value;
+              }
             },
             onDoubleTapDown: (TapDownDetails details) {
               // live模式下禁用 锁定时🔒禁用
@@ -761,112 +765,114 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         ),
 
         /// 居中播放/暂停按钮
-        buildCenterPlayPauseButton(),
+        if (widget.controlsEnabled) buildCenterPlayPauseButton(),
 
         // 头部、底部控制条
-        Obx(
-          () => Column(
-            children: [
-              if (widget.headerControl != null || _.headerControl != null)
+        if (widget.controlsEnabled)
+          Obx(
+            () => Column(
+              children: [
+                if (widget.headerControl != null || _.headerControl != null)
+                  ClipRect(
+                    child: AppBarAni(
+                      controller: animationController,
+                      visible: !_.controlsLock.value && _.showControls.value,
+                      position: 'top',
+                      child: widget.headerControl ?? _.headerControl!,
+                    ),
+                  ),
+                const Spacer(),
                 ClipRect(
                   child: AppBarAni(
                     controller: animationController,
                     visible: !_.controlsLock.value && _.showControls.value,
-                    position: 'top',
-                    child: widget.headerControl ?? _.headerControl!,
+                    position: 'bottom',
+                    child: widget.bottomControl ??
+                        BottomControl(
+                          controller: widget.controller,
+                          triggerFullScreen: _.triggerFullScreen,
+                          buildBottomControl: buildBottomControl(),
+                        ),
                   ),
                 ),
-              const Spacer(),
-              ClipRect(
-                child: AppBarAni(
-                  controller: animationController,
-                  visible: !_.controlsLock.value && _.showControls.value,
-                  position: 'bottom',
-                  child: widget.bottomControl ??
-                      BottomControl(
-                        controller: widget.controller,
-                        triggerFullScreen: _.triggerFullScreen,
-                        buildBottomControl: buildBottomControl(),
-                      ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
 
         /// 进度条 live模式下禁用
 
-        Obx(
-          () {
-            final int value = _.sliderPositionSeconds.value;
-            final int max = _.durationSeconds.value;
-            final int buffer = _.bufferedSeconds.value;
-            if (_.showControls.value) {
-              return Container();
-            }
-            if (defaultBtmProgressBehavior ==
-                BtmProgresBehavior.alwaysHide.code) {
-              return const SizedBox();
-            }
-            if (defaultBtmProgressBehavior ==
-                    BtmProgresBehavior.onlyShowFullScreen.code &&
-                !_.isFullScreen.value) {
-              return const SizedBox();
-            } else if (defaultBtmProgressBehavior ==
-                    BtmProgresBehavior.onlyHideFullScreen.code &&
-                _.isFullScreen.value) {
-              return const SizedBox();
-            }
+        if (widget.controlsEnabled)
+          Obx(
+            () {
+              final int value = _.sliderPositionSeconds.value;
+              final int max = _.durationSeconds.value;
+              final int buffer = _.bufferedSeconds.value;
+              if (_.showControls.value) {
+                return Container();
+              }
+              if (defaultBtmProgressBehavior ==
+                  BtmProgresBehavior.alwaysHide.code) {
+                return const SizedBox();
+              }
+              if (defaultBtmProgressBehavior ==
+                      BtmProgresBehavior.onlyShowFullScreen.code &&
+                  !_.isFullScreen.value) {
+                return const SizedBox();
+              } else if (defaultBtmProgressBehavior ==
+                      BtmProgresBehavior.onlyHideFullScreen.code &&
+                  _.isFullScreen.value) {
+                return const SizedBox();
+              }
 
-            if (_.videoType == 'live') {
-              return const SizedBox();
-            }
-            if (value > max || max <= 0) {
-              return const SizedBox();
-            }
-            return Positioned(
-              bottom: -1.5,
-              left: 0,
-              right: 0,
-              child: ProgressBar(
-                progress: Duration(seconds: value),
-                buffered: Duration(seconds: buffer),
-                total: Duration(seconds: max),
-                progressBarColor: colorTheme,
-                baseBarColor: Colors.white.withOpacity(0.2),
-                bufferedBarColor:
-                    Theme.of(context).colorScheme.primary.withOpacity(0.4),
-                timeLabelLocation: TimeLabelLocation.none,
-                thumbColor: colorTheme,
-                barHeight: 3,
-                thumbRadius: 0.0,
-                // onDragStart: (duration) {
-                //   _.onChangedSliderStart();
-                // },
-                // onDragEnd: () {
-                //   _.onChangedSliderEnd();
-                // },
-                // onDragUpdate: (details) {
-                //   print(details);
-                // },
-                // onSeek: (duration) {
-                //   feedBack();
-                //   _.onChangedSlider(duration.inSeconds.toDouble());
-                //   _.seekTo(duration);
-                // },
-              ),
-              // SlideTransition(
-              //     position: Tween<Offset>(
-              //       begin: Offset.zero,
-              //       end: const Offset(0, -1),
-              //     ).animate(CurvedAnimation(
-              //       parent: animationController,
-              //       curve: Curves.easeInOut,
-              //     )),
-              //     child: ),
-            );
-          },
-        ),
+              if (_.videoType == 'live') {
+                return const SizedBox();
+              }
+              if (value > max || max <= 0) {
+                return const SizedBox();
+              }
+              return Positioned(
+                bottom: -1.5,
+                left: 0,
+                right: 0,
+                child: ProgressBar(
+                  progress: Duration(seconds: value),
+                  buffered: Duration(seconds: buffer),
+                  total: Duration(seconds: max),
+                  progressBarColor: colorTheme,
+                  baseBarColor: Colors.white.withOpacity(0.2),
+                  bufferedBarColor:
+                      Theme.of(context).colorScheme.primary.withOpacity(0.4),
+                  timeLabelLocation: TimeLabelLocation.none,
+                  thumbColor: colorTheme,
+                  barHeight: 3,
+                  thumbRadius: 0.0,
+                  // onDragStart: (duration) {
+                  //   _.onChangedSliderStart();
+                  // },
+                  // onDragEnd: () {
+                  //   _.onChangedSliderEnd();
+                  // },
+                  // onDragUpdate: (details) {
+                  //   print(details);
+                  // },
+                  // onSeek: (duration) {
+                  //   feedBack();
+                  //   _.onChangedSlider(duration.inSeconds.toDouble());
+                  //   _.seekTo(duration);
+                  // },
+                ),
+                // SlideTransition(
+                //     position: Tween<Offset>(
+                //       begin: Offset.zero,
+                //       end: const Offset(0, -1),
+                //     ).animate(CurvedAnimation(
+                //       parent: animationController,
+                //       curve: Curves.easeInOut,
+                //     )),
+                //     child: ),
+              );
+            },
+          ),
 
         // 锁
         Obx(

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:pilipala/http/constants.dart';
@@ -49,7 +51,23 @@ class TvPlayerController extends GetxController {
 
   Worker? _positionWorker;
   Worker? _statusWorker;
+  Timer? _controlsHideTimer;
   bool _switchingVideo = false;
+
+  void showControlsTemporarily() {
+    _controlsHideTimer?.cancel();
+    player.controls = false;
+    if (menuVisible.value) {
+      controlsVisible.value = false;
+      return;
+    }
+    controlsVisible.value = true;
+    _controlsHideTimer = Timer(const Duration(seconds: 3), () {
+      if (!menuVisible.value) {
+        controlsVisible.value = false;
+      }
+    });
+  }
 
   void _readRouteParams() {
     _bvid = Get.parameters['bvid'] ?? '';
@@ -158,6 +176,7 @@ class TvPlayerController extends GetxController {
       volume.value = player.volume.value;
       playbackSpeed.value = player.playbackSpeed;
       _syncAntiAddictionWithPlayer();
+      showControlsTemporarily();
     } catch (e) {
       error.value = '播放器初始化失败: $e';
       SmartDialog.showToast(error.value!);
@@ -238,7 +257,7 @@ class TvPlayerController extends GetxController {
 
   Future<void> togglePlay() async {
     await player.togglePlay();
-    controlsVisible.value = true;
+    showControlsTemporarily();
   }
 
   Future<void> toggleDanmaku() async {
@@ -246,7 +265,7 @@ class TvPlayerController extends GetxController {
     player.isOpenDanmu.value = next;
     await GStrorage.setting.put(SettingBoxKey.enableShowDanmaku, next);
     menuVisible.value = true;
-    controlsVisible.value = true;
+    showControlsTemporarily();
   }
 
   String get danmakuAreaLabel {
@@ -365,7 +384,7 @@ class TvPlayerController extends GetxController {
     } catch (_) {}
     danmakuOptionVersion.value++;
     menuVisible.value = true;
-    controlsVisible.value = true;
+    showControlsTemporarily();
   }
 
   Future<void> _cacheDanmakuOption() async {
@@ -373,7 +392,7 @@ class TvPlayerController extends GetxController {
     _syncDanmakuGlobalCache();
     danmakuOptionVersion.value++;
     menuVisible.value = true;
-    controlsVisible.value = true;
+    showControlsTemporarily();
   }
 
   void _reloadDanmakuOptionsFromStorage() {
@@ -426,7 +445,7 @@ class TvPlayerController extends GetxController {
     await player.setPlaybackSpeed(next);
     playbackSpeed.value = next;
     menuVisible.value = true;
-    controlsVisible.value = true;
+    showControlsTemporarily();
   }
 
   Future<void> toggleThinProgress() async {
@@ -436,19 +455,23 @@ class TvPlayerController extends GetxController {
       thinProgressEnabled.value,
     );
     menuVisible.value = true;
-    controlsVisible.value = true;
+    showControlsTemporarily();
   }
 
   void toggleMenu() {
     menuVisible.value = !menuVisible.value;
     if (menuVisible.value) {
       menuIndex.value = 0;
+      _controlsHideTimer?.cancel();
+      controlsVisible.value = false;
+    } else {
+      showControlsTemporarily();
     }
-    controlsVisible.value = true;
   }
 
   void closeMenu() {
     menuVisible.value = false;
+    showControlsTemporarily();
   }
 
   void moveMenuSelection(int delta) {
@@ -508,19 +531,18 @@ class TvPlayerController extends GetxController {
   Future<void> seekRelative(int seconds) async {
     final Duration target = player.position.value + Duration(seconds: seconds);
     await player.seekTo(target);
-    controlsVisible.value = true;
+    showControlsTemporarily();
   }
 
   Future<void> adjustVolume(double delta) async {
     final double next = (player.volume.value + delta).clamp(0.0, 1.0);
     await player.setVolume(next);
     volume.value = next;
-    controlsVisible.value = true;
+    showControlsTemporarily();
   }
 
   void toggleControls() {
-    controlsVisible.value = !controlsVisible.value;
-    player.controls = controlsVisible.value;
+    showControlsTemporarily();
   }
 
   void _watchAutoNext() {
@@ -573,6 +595,8 @@ class TvPlayerController extends GetxController {
   void onInit() {
     super.onInit();
     _readRouteParams();
+    player.controls = false;
+    showControlsTemporarily();
     _watchAutoNext();
     _watchAntiAddiction();
     initPlayer();
@@ -580,6 +604,7 @@ class TvPlayerController extends GetxController {
 
   @override
   void onClose() {
+    _controlsHideTimer?.cancel();
     _positionWorker?.dispose();
     _statusWorker?.dispose();
     if (Get.isRegistered<TvAntiAddictionController>()) {

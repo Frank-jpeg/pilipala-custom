@@ -37,6 +37,7 @@ The TV app uses a compact two-row top navigation above the shared content stage:
 - pressing Back from the TV shell shows an exit confirmation dialog before closing the app, with initial focus on the exit action
 - from recommendation playback, DPAD up/down switches previous/next recommendation
 - from playback, the remote Menu key opens `播放设置` for danmaku on/off, playback speed, thin progress bar, danmaku display area, duration/speed, font size, opacity, stroke width, and top/scroll/bottom/color blocking
+- the TV bottom hint panel appears on entry and remote actions, auto-hides after 3 seconds, and does not coexist with the shared mobile player controls; the optional 3 px thin progress bar remains independent
 - `设置` can enable/disable idle auto-fullscreen and change the delay from 5 to 60 seconds
 - `设置` can enable TV anti-addiction controls with a local 4-digit parent PIN
 - TV anti-addiction tracks recommendation preview and full-screen playback, then locks playback for forced rest or daily limit countdowns
@@ -160,28 +161,29 @@ Use the latest `tv` branch artifact from GitHub Actions or the local arm64 relea
 11. Press OK on a recommendation and confirm full-screen playback opens from the current homepage preview position when preview is already playing.
 12. In recommendation playback, use DPAD up/down to switch videos and confirm switched videos start from 0 seconds.
 13. Press the remote Menu key in playback and confirm `播放设置` opens. Toggle danmaku, cycle danmaku display area, duration/speed, font size, opacity, stroke width, and top/scroll/bottom/color blocking; confirm the menu scrolls to the focused item and settings persist after reopening playback.
-14. Press Back and confirm it returns to the correct previous page:
+14. Confirm the TV bottom hint panel disappears after 3 seconds, reappears after play/pause, seek, volume, or recommendation switching, and tapping the picture does not open a second mobile-style control bar. If the thin progress bar is enabled, confirm only the 3 px bar remains at the very bottom.
+15. Press Back and confirm it returns to the correct previous page:
    - recommendation playback -> recommendation stage
    - detail playback -> detail page
-15. Enter `历史` / `收藏` / `稍后再看` from the top tabs and verify:
+16. Enter `历史` / `收藏` / `稍后再看` from the top tabs and verify:
    - not logged in: the right side shows the inline login prompt without crashing
    - logged in after phone login: lists load from TV `access_key` APIs, DPAD up/down switches items, OK plays, right opens detail, and up from the first item returns to the selected tab
-16. Enter `登录` and test all login paths:
+17. Enter `登录` and test all login paths:
     - `扫码登录`: scan the TV QR code and confirm the app detects login state.
     - `手机号登录`: use the on-screen 9-key number pad to input an 11-digit phone number, request an SMS code, and if Geetest point-select captcha appears, confirm the DPAD cursor appears, arrow keys move it, and OK can click the requested characters.
     - `手机号登录`: after captcha passes, input the 6-digit SMS code and confirm login state syncs.
     - `网页登录兜底`: open the official WebView login page and confirm the DPAD cursor can click the official page controls, password/risk verification remains operable, and `刷新登录状态` syncs the account after login.
     - `我的`: after login, enter `我的` and confirm `退出登录` clears the login state.
-17. In `手机号登录`, confirm `清空`, `0`, `删除`, `返回手机号`, countdown resend, incomplete input validation, and captcha overlay re-entry all work with DPAD/OK.
-18. Enter `搜索` and confirm both `返回` and `搜索` buttons are focusable with DPAD. Search a known public keyword such as `猫` and confirm video results render.
-19. Enter `媒体库` and confirm the page is usable in both logged-in and not-logged-in states. After TV phone login, verify `历史记录` / `收藏内容` / `稍后再看` all show the same access-key data path as the home channels.
-20. Enter `设置` and confirm idle auto-fullscreen can be toggled and its delay can be adjusted.
-21. In `设置`, set a parent PIN, enable `TV 防沉迷`, and confirm the default values are 30 minutes watch / 20 minutes rest / daily limit off.
-22. Temporarily reduce the single-session limit during manual testing if needed, then confirm recommendation preview and full-screen playback both trigger the lock page.
-23. Confirm Back cannot bypass the anti-addiction lock page.
-24. Confirm parent PIN unlock resumes playback and daily-limit PIN unlock adds only the temporary extra watch time.
-25. Return to the TV shell, press Back, and confirm the exit dialog initially focuses `退出`; press OK once and confirm the app exits without an extra left/right focus move.
-26. Confirm real playback has video and audio.
-27. Test account-only flows after login if needed.
+18. In `手机号登录`, confirm `清空`, `0`, `删除`, `返回手机号`, countdown resend, incomplete input validation, and captcha overlay re-entry all work with DPAD/OK.
+19. Enter `搜索` and confirm both `返回` and `搜索` buttons are focusable with DPAD. Search a known public keyword such as `猫` and confirm video results render.
+20. Enter `媒体库` and confirm the page is usable in both logged-in and not-logged-in states. After TV phone login, verify `历史记录` / `收藏内容` / `稍后再看` all show the same access-key data path as the home channels.
+21. Enter `设置` and confirm idle auto-fullscreen can be toggled and its delay can be adjusted.
+22. In `设置`, set a parent PIN, enable `TV 防沉迷`, and confirm the default values are 30 minutes watch / 20 minutes rest / daily limit off.
+23. Temporarily reduce the single-session limit during manual testing if needed, then confirm recommendation preview and full-screen playback both trigger the lock page.
+24. Confirm Back cannot bypass the anti-addiction lock page.
+25. Confirm parent PIN unlock resumes playback and daily-limit PIN unlock adds only the temporary extra watch time.
+26. Return to the TV shell, press Back, and confirm the exit dialog initially focuses `退出`; press OK once and confirm the app exits without an extra left/right focus move.
+27. Confirm real playback has video and audio.
+28. Test account-only flows after login if needed.
 
 If real-device playback is black, treat it as a player/play-url compatibility bug and inspect `TvPlayerController` plus the shared `PlPlayerController`/`media_kit` integration first.

@@ -113,6 +113,7 @@ class TvPlayerPage extends StatelessWidget {
                 else
                   PLVideoPlayer(
                     controller: controller.player,
+                    controlsEnabled: false,
                     danmuWidget: Obx(
                       () => controller.currentCid.value <= 0
                           ? const SizedBox.shrink()
