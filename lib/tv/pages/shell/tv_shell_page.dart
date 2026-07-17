@@ -181,6 +181,10 @@ class _TvShellPageState extends State<TvShellPage> {
       case LogicalKeyboardKey.arrowLeft:
         _focusSelectedTab();
         return KeyEventResult.handled;
+      case LogicalKeyboardKey.goBack:
+      case LogicalKeyboardKey.escape:
+        _focusSelectedTab();
+        return KeyEventResult.handled;
       case LogicalKeyboardKey.select:
       case LogicalKeyboardKey.enter:
         unawaited(_activateContent());
@@ -329,6 +333,10 @@ class _TvShellPageState extends State<TvShellPage> {
       _homeFocusNode.requestFocus();
       return;
     }
+    if (_homeFocusNode.hasFocus) {
+      _focusSelectedTab();
+      return;
+    }
     unawaited(_confirmExit());
   }
 
@@ -337,7 +345,7 @@ class _TvShellPageState extends State<TvShellPage> {
     final bool? exit = await Get.dialog<bool>(
       AlertDialog(
         backgroundColor: const Color(0xFF10182A),
-        title: const Text('退出 云视听pilipala？',
+        title: const Text('退出 云视听大电视？',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
         content: const Text(
           '再确认一次，避免遥控器误按直接退到桌面。',
