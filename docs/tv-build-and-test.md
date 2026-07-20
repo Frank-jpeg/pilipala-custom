@@ -34,13 +34,15 @@ The TV app uses a compact two-row top navigation above the shared content stage:
 - idle on a recommendation can auto-enter full-screen playback and resumes from the current homepage preview position when available
 - `历史` / `收藏` / `稍后再看` reuse the same stage layout but do not auto-preview or auto-enter full-screen
 - `历史` / `收藏` / `稍后再看` require login and show an inline login prompt when opened without an account session
-- pressing Back from the TV shell shows an exit confirmation dialog before closing the app, with initial focus on the exit action
+- pressing Back from a content list returns focus to its current home tab; pressing Back from the top navigation shows the exit confirmation dialog, initially focused on the exit action
 - from recommendation playback, DPAD up/down switches previous/next recommendation
 - from playback, the remote Menu key opens `播放设置` for danmaku on/off, playback speed, thin progress bar, danmaku display area, duration/speed, font size, opacity, stroke width, and top/scroll/bottom/color blocking
 - the TV bottom hint panel appears on entry and remote actions, auto-hides after 3 seconds, and does not coexist with the shared mobile player controls; the optional 3 px thin progress bar remains independent
 - `设置` can enable/disable idle auto-fullscreen and change the delay from 5 to 60 seconds
-- `设置` can enable TV anti-addiction controls with a local 4-digit parent PIN
-- TV anti-addiction tracks recommendation preview and full-screen playback, then locks playback for forced rest or daily limit countdowns
+- the top of `设置` shows the installed app version plus session and daily viewing progress; the session limit accepts custom values from 1 to 720 minutes
+- TV anti-addiction counts only while recommendation preview or full-screen video is actually playing; pause, loading, and app background time do not count
+- the lock page shows a circular countdown and supports parent PIN or easy/medium/hard math unlock; math answers are entered with a `0–99` numeric keypad, allow at most three wrong answers per lock, and always retain PIN as a fallback
+- successful PIN or math validation opens the shared temporary extension choice for `10 / 15 / 20` minutes; cancelling keeps playback locked
 - `登录` / `我的` supports `扫码登录`, `手机号登录`, and `网页登录兜底`, and the logged-in `我的` page exposes logout
 - `手机号登录` uses the on-screen 9-key number pad for phone number and SMS code, and now overlays a DPAD cursor when Geetest point-select captcha appears
 - `网页登录兜底` reuses the official Bilibili H5 login page in WebView and also provides the same DPAD cursor for remote-only devices during password/risk verification
@@ -57,7 +59,7 @@ The TV MVP reuses the existing project API layer.
   - `扫码登录`: Web QR login with polling.
   - `手机号登录`: remote-friendly 9-key number pad for phone number and SMS code.
   - `网页登录兜底`: opens the same official Bilibili H5 login page used by the mobile app through WebView. Use this when QR/SMS login does not sync, or when password/risk verification is required.
-- The TV SMS path still uses the existing Web SMS + Geetest captcha flow, but the TV shell now injects a remote-controlled pointer for point-select captcha taps.
+- Native TV phone login uses the official signed `passport-tv-login` SMS endpoints. If risk verification presents a Geetest point-select captcha, the TV shell injects a remote-controlled pointer for its taps.
 - The `tvLogin` WebView path also injects the same remote-controlled pointer so official H5 password/risk verification remains operable from a DPAD-only device.
 - TV phone login stores an `access_key`. For logged-in TV account content, prefer the official TV access-key endpoints instead of Web cookie endpoints:
   - history: `/x/v2/history`
@@ -175,15 +177,17 @@ Use the latest `tv` branch artifact from GitHub Actions or the local arm64 relea
     - `网页登录兜底`: open the official WebView login page and confirm the DPAD cursor can click the official page controls, password/risk verification remains operable, and `刷新登录状态` syncs the account after login.
     - `我的`: after login, enter `我的` and confirm `退出登录` clears the login state.
 18. In `手机号登录`, confirm `清空`, `0`, `删除`, `返回手机号`, countdown resend, incomplete input validation, and captcha overlay re-entry all work with DPAD/OK.
-19. Enter `搜索` and confirm both `返回` and `搜索` buttons are focusable with DPAD. Search a known public keyword such as `猫` and confirm video results render.
+19. Enter `搜索` and confirm both `返回` and `搜索` buttons are focusable with DPAD. Search a known public keyword such as `猫`, confirm the first result receives focus automatically, and verify DPAD navigation scrolls through all results without being trapped by the input field.
 20. Enter `媒体库` and confirm the page is usable in both logged-in and not-logged-in states. After TV phone login, verify `历史记录` / `收藏内容` / `稍后再看` all show the same access-key data path as the home channels.
-21. Enter `设置` and confirm idle auto-fullscreen can be toggled and its delay can be adjusted.
-22. In `设置`, set a parent PIN, enable `TV 防沉迷`, and confirm the default values are 30 minutes watch / 20 minutes rest / daily limit off.
-23. Temporarily reduce the single-session limit during manual testing if needed, then confirm recommendation preview and full-screen playback both trigger the lock page.
-24. Confirm Back cannot bypass the anti-addiction lock page.
-25. Confirm parent PIN unlock resumes playback and daily-limit PIN unlock adds only the temporary extra watch time.
-26. Return to the TV shell, press Back, and confirm the exit dialog initially focuses `退出`; press OK once and confirm the app exits without an extra left/right focus move.
-27. Confirm real playback has video and audio.
-28. Test account-only flows after login if needed.
+21. Enter `设置` and confirm the top panel shows the installed version plus both session and daily viewing progress, then confirm idle auto-fullscreen can be toggled and its delay adjusted.
+22. Set a parent PIN, enable `TV 防沉迷`, and confirm the default values are 30 minutes watch / 20 minutes rest / daily limit off. Test custom single-session values at the supported `1–720` minute bounds.
+23. Confirm time advances only during actually playing recommendation preview or full-screen playback, and does not advance while paused, loading, or in the background.
+24. Reduce the single-session limit, confirm playback opens the lock page, the circular countdown decreases, and Back cannot bypass it.
+25. Test unlock method selection and persistence for parent PIN plus all three math difficulties. In each math mode, enter the answer with the numeric keypad and confirm PIN remains available as a fallback.
+26. Confirm a wrong math answer shows the remaining attempts, the third wrong answer disables math for that lock, and waiting or PIN are still usable.
+27. Confirm correct math or PIN validation opens the `10 / 15 / 20` minute extension choice; choosing one resumes playback with only that temporary allowance, while cancelling stays locked.
+28. From a content list, press Back and confirm focus returns to the current home tab. Press Back again from top navigation, confirm the exit dialog initially focuses `退出`, then press OK once to exit without an extra left/right focus move.
+29. Confirm real playback has video and audio.
+30. Test account-only flows after login if needed.
 
 If real-device playback is black, treat it as a player/play-url compatibility bug and inspect `TvPlayerController` plus the shared `PlPlayerController`/`media_kit` integration first.
