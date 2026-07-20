@@ -144,12 +144,10 @@ void main() {
           ? const TvMathChallenge(
               prompt: '2 + 3 = ?',
               answer: 5,
-              options: <int>[4, 5, 6],
             )
           : const TvMathChallenge(
               prompt: '4 + 4 = ?',
               answer: 8,
-              options: <int>[7, 8, 9],
             );
     }
 
@@ -188,11 +186,13 @@ void main() {
     expect(find.text('2 + 3 = ?'), findsOneWidget);
 
     await tester.tap(find.text('4'));
+    await tester.tap(find.text('提交答案'));
     await tester.pumpAndSettle();
-    expect(find.text('答案不对，已换一题'), findsOneWidget);
+    expect(find.text('答案不对，还可尝试 2 次'), findsOneWidget);
     expect(find.text('4 + 4 = ?'), findsOneWidget);
 
     await tester.tap(find.text('8'));
+    await tester.tap(find.text('提交答案'));
     await tester.pumpAndSettle();
     expect(find.text('选择延长观看时间'), findsOneWidget);
     await tester.tap(find.text('10 分钟'));
@@ -200,5 +200,50 @@ void main() {
 
     expect(controller.grantedExtensionMinutes, 10);
     expect(controller.isLocked.value, isFalse);
+  });
+
+  testWidgets('three wrong math answers disable math for the current lock',
+      (WidgetTester tester) async {
+    final _FakeAntiAddictionController controller =
+        _FakeAntiAddictionController();
+    controller.isLocked.value = true;
+    controller.lockReason.value = TvAntiAddictionLockReason.rest;
+    controller.restMinutes.value = 20;
+    controller.remainingLockSeconds.value = 20 * 60;
+    controller.unlockMode.value = TvAntiAddictionUnlockMode.mathEasy;
+    Get.put<TvAntiAddictionController>(controller);
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        home: const Scaffold(body: SizedBox.expand()),
+        builder: (BuildContext context, Widget? child) {
+          return Stack(
+            children: <Widget>[
+              Positioned.fill(child: child ?? const SizedBox.shrink()),
+              TvAntiAddictionLockOverlay(
+                challengeFactory: (_) => const TvMathChallenge(
+                  prompt: '2 + 3 = ?',
+                  answer: 5,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    for (int attempt = 0; attempt < 3; attempt++) {
+      await tester.tap(find.text('4'));
+      await tester.tap(find.text('提交答案'));
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.text('算术解锁机会已用完，请等待或使用家长 PIN'), findsOneWidget);
+    expect(find.text('算术解锁'), findsNothing);
+    expect(find.text('家长 PIN 解锁'), findsOneWidget);
+    expect(controller.isLocked.value, isTrue);
   });
 }

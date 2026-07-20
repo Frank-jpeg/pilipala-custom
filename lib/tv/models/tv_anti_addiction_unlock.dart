@@ -36,12 +36,10 @@ class TvMathChallenge {
   const TvMathChallenge({
     required this.prompt,
     required this.answer,
-    required this.options,
   });
 
   final String prompt;
   final int answer;
-  final List<int> options;
 }
 
 class TvMathChallengeGenerator {
@@ -57,7 +55,7 @@ class TvMathChallengeGenerator {
         final bool addition = _random.nextBool();
         if (addition) {
           final int left = 10 + _random.nextInt(60);
-          final int right = 2 + _random.nextInt(99 - left);
+          final int right = 2 + _random.nextInt(98 - left);
           prompt = '$left + $right = ?';
           answer = left + right;
         } else {
@@ -70,8 +68,8 @@ class TvMathChallengeGenerator {
       case TvAntiAddictionUnlockMode.mathMedium:
         final int template = _random.nextInt(3);
         if (template == 0) {
-          final int left = 3 + _random.nextInt(10);
-          final int right = 2 + _random.nextInt(11);
+          final int left = 2 + _random.nextInt(8);
+          final int right = 2 + _random.nextInt(8);
           prompt = '$left × $right = ?';
           answer = left * right;
         } else if (template == 1) {
@@ -80,8 +78,8 @@ class TvMathChallengeGenerator {
           prompt = '${divisor * quotient} ÷ $divisor = ?';
           answer = quotient;
         } else {
-          final int left = 2 + _random.nextInt(8);
-          final int right = 2 + _random.nextInt(8);
+          final int left = 2 + _random.nextInt(7);
+          final int right = 2 + _random.nextInt(7);
           final int extra = 2 + _random.nextInt(19);
           prompt = '$left × $right + $extra = ?';
           answer = left * right + extra;
@@ -90,14 +88,14 @@ class TvMathChallengeGenerator {
       case TvAntiAddictionUnlockMode.mathHard:
         final int template = _random.nextInt(3);
         if (template == 0) {
-          final int base = 4 + _random.nextInt(12);
-          final int minus = 2 + _random.nextInt(19);
+          final int base = 4 + _random.nextInt(7);
+          final int minus = 1 + _random.nextInt(base * base);
           prompt = '$base² - $minus = ?';
           answer = base * base - minus;
         } else if (template == 1) {
-          final int left = 3 + _random.nextInt(18);
-          final int right = 3 + _random.nextInt(18);
-          final int multiplier = 2 + _random.nextInt(8);
+          final int left = 3 + _random.nextInt(10);
+          final int right = 3 + _random.nextInt(10);
+          final int multiplier = 2 + _random.nextInt(3);
           prompt = '($left + $right) × $multiplier = ?';
           answer = (left + right) * multiplier;
         } else {
@@ -115,27 +113,6 @@ class TvMathChallengeGenerator {
     return TvMathChallenge(
       prompt: prompt,
       answer: answer,
-      options: _buildOptions(answer, mode),
     );
-  }
-
-  List<int> _buildOptions(int answer, TvAntiAddictionUnlockMode mode) {
-    final int spread = switch (mode) {
-      TvAntiAddictionUnlockMode.mathEasy => 8,
-      TvAntiAddictionUnlockMode.mathMedium => 12,
-      TvAntiAddictionUnlockMode.mathHard => 20,
-      TvAntiAddictionUnlockMode.pin => 8,
-    };
-    final Set<int> values = <int>{answer};
-    while (values.length < 3) {
-      final int distance = 1 + _random.nextInt(spread);
-      final int candidate =
-          answer + (_random.nextBool() ? distance : -distance);
-      if (candidate >= 0) {
-        values.add(candidate);
-      }
-    }
-    final List<int> options = values.toList(growable: false)..shuffle(_random);
-    return options;
   }
 }

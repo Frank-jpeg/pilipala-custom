@@ -269,7 +269,7 @@ class TvSettingsPage extends StatelessWidget {
               _SettingRow(
                 title: '解锁方式',
                 subtitle: controller.unlockUsesMath
-                    ? '答题解锁时始终保留家长 PIN 备用入口'
+                    ? '数字键盘输入答案，每次锁定最多答错 3 次，并保留 PIN 备用入口'
                     : '使用 4 位家长 PIN 验证后解锁',
                 value: controller.unlockModeLabel,
                 actions: <Widget>[

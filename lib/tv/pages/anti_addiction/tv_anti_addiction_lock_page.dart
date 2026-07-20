@@ -21,6 +21,8 @@ class TvAntiAddictionLockOverlay extends StatefulWidget {
 
 class _TvAntiAddictionLockOverlayState
     extends State<TvAntiAddictionLockOverlay> {
+  static const int _maxMathAttempts = 3;
+
   final TvAntiAddictionController controller =
       Get.find<TvAntiAddictionController>();
   final FocusNode _unlockFocusNode =
@@ -30,6 +32,11 @@ class _TvAntiAddictionLockOverlayState
   late final TvMathChallengeGenerator _challengeGenerator;
   Worker? _lockWorker;
   bool _unlockDialogShowing = false;
+  int _mathWrongAttempts = 0;
+
+  bool get _mathUnlockAvailable =>
+      controller.unlockMode.value.usesMath &&
+      _mathWrongAttempts < _maxMathAttempts;
 
   @override
   void initState() {
@@ -38,6 +45,11 @@ class _TvAntiAddictionLockOverlayState
     _lockWorker = ever<bool>(controller.isLocked, (bool locked) {
       if (!locked) {
         return;
+      }
+      if (mounted) {
+        setState(() {
+          _mathWrongAttempts = 0;
+        });
       }
       _requestUnlockFocus();
     });
@@ -119,6 +131,19 @@ class _TvAntiAddictionLockOverlayState
                           const SizedBox(height: 28),
                           _LockCountdown(controller: controller),
                           const SizedBox(height: 30),
+                          if (controller.unlockMode.value.usesMath &&
+                              !_mathUnlockAvailable) ...<Widget>[
+                            const Text(
+                              '算术解锁机会已用完，请等待或使用家长 PIN',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Color(0xFFFF6B78),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                          ],
                           Wrap(
                             spacing: 16,
                             runSpacing: 12,
@@ -127,15 +152,14 @@ class _TvAntiAddictionLockOverlayState
                               TvFocusableButton(
                                 autofocus: true,
                                 focusNode: _unlockFocusNode,
-                                icon: controller.unlockMode.value.usesMath
+                                icon: _mathUnlockAvailable
                                     ? Icons.calculate_outlined
                                     : Icons.pin_outlined,
-                                label: controller.unlockMode.value.usesMath
-                                    ? '算术解锁'
-                                    : '家长 PIN 解锁',
+                                label:
+                                    _mathUnlockAvailable ? '算术解锁' : '家长 PIN 解锁',
                                 onPressed: _showPrimaryUnlock,
                               ),
-                              if (controller.unlockMode.value.usesMath)
+                              if (_mathUnlockAvailable)
                                 TvFocusableButton(
                                   focusNode: _pinFallbackFocusNode,
                                   icon: Icons.pin_outlined,
@@ -162,13 +186,13 @@ class _TvAntiAddictionLockOverlayState
       return KeyEventResult.ignored;
     }
     final LogicalKeyboardKey key = event.logicalKey;
-    if (controller.unlockMode.value.usesMath &&
+    if (_mathUnlockAvailable &&
         key == LogicalKeyboardKey.arrowRight &&
         _unlockFocusNode.hasFocus) {
       _pinFallbackFocusNode.requestFocus();
       return KeyEventResult.handled;
     }
-    if (controller.unlockMode.value.usesMath &&
+    if (_mathUnlockAvailable &&
         key == LogicalKeyboardKey.arrowLeft &&
         _pinFallbackFocusNode.hasFocus) {
       _unlockFocusNode.requestFocus();
@@ -187,7 +211,7 @@ class _TvAntiAddictionLockOverlayState
   }
 
   void _showPrimaryUnlock() {
-    if (controller.unlockMode.value.usesMath) {
+    if (_mathUnlockAvailable) {
       _showMathDialog();
     } else {
       _showPinDialog();
@@ -210,8 +234,10 @@ class _TvAntiAddictionLockOverlayState
 
   Future<void> _showMathDialog() {
     return _runUnlockFlow(() async {
-      bool answeredWrong = false;
-      while (mounted && controller.isLocked.value) {
+      String? wrongMessage;
+      while (mounted &&
+          controller.isLocked.value &&
+          _mathWrongAttempts < _maxMathAttempts) {
         final TvAntiAddictionUnlockMode mode = controller.unlockMode.value;
         if (!mode.usesMath) {
           return false;
@@ -221,7 +247,7 @@ class _TvAntiAddictionLockOverlayState
         final int? selected = await _openMathChallengeDialog(
           mode: mode,
           challenge: challenge,
-          showWrongMessage: answeredWrong,
+          wrongMessage: wrongMessage,
         );
         if (selected == null) {
           return false;
@@ -229,7 +255,12 @@ class _TvAntiAddictionLockOverlayState
         if (selected == challenge.answer) {
           return true;
         }
-        answeredWrong = true;
+        _mathWrongAttempts++;
+        final int attemptsLeft = _maxMathAttempts - _mathWrongAttempts;
+        if (attemptsLeft <= 0) {
+          return false;
+        }
+        wrongMessage = '答案不对，还可尝试 $attemptsLeft 次';
       }
       return false;
     });
@@ -283,17 +314,22 @@ class _TvAntiAddictionLockOverlayState
   Future<int?> _openMathChallengeDialog({
     required TvAntiAddictionUnlockMode mode,
     required TvMathChallenge challenge,
-    required bool showWrongMessage,
+    required String? wrongMessage,
   }) {
     final BuildContext? context = Get.overlayContext ?? Get.context;
     if (context == null) {
       return Future<int?>.value();
     }
-    return showTvMathChallengeDialog(
-      context: context,
-      mode: mode,
-      challenge: challenge,
-      showWrongMessage: showWrongMessage,
+    return showTvNumberInputDialog(
+      context,
+      title: mode.label,
+      initialValue: 0,
+      minValue: 0,
+      maxValue: 99,
+      unit: '',
+      prompt: challenge.prompt,
+      message: wrongMessage,
+      confirmLabel: '提交答案',
     );
   }
 
@@ -419,80 +455,6 @@ class _CountdownRing extends StatelessWidget {
   }
 }
 
-Future<int?> showTvMathChallengeDialog({
-  required BuildContext context,
-  required TvAntiAddictionUnlockMode mode,
-  required TvMathChallenge challenge,
-  bool showWrongMessage = false,
-}) {
-  return showDialog<int>(
-    context: context,
-    barrierDismissible: false,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        backgroundColor: const Color(0xFF121A2B),
-        title: Text(mode.label),
-        content: SizedBox(
-          width: 560,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              if (showWrongMessage) ...<Widget>[
-                const Text(
-                  '答案不对，已换一题',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Color(0xFFFF6B78),
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 14),
-              ],
-              Text(
-                challenge.prompt,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 36,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 28),
-              FocusTraversalGroup(
-                child: Wrap(
-                  spacing: 16,
-                  runSpacing: 12,
-                  alignment: WrapAlignment.center,
-                  children: <Widget>[
-                    for (int index = 0;
-                        index < challenge.options.length;
-                        index++)
-                      TvFocusableButton(
-                        autofocus: index == 0,
-                        label: '${challenge.options[index]}',
-                        onPressed: () =>
-                            Navigator.of(context).pop(challenge.options[index]),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: <Widget>[
-          TvFocusableButton(
-            icon: Icons.close,
-            label: '取消',
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-        ],
-      );
-    },
-  );
-}
-
 Future<String?> showTvPinDialog(
   BuildContext context, {
   required String title,
@@ -514,6 +476,9 @@ Future<int?> showTvNumberInputDialog(
   required int minValue,
   required int maxValue,
   required String unit,
+  String? prompt,
+  String? message,
+  String confirmLabel = '保存',
 }) {
   return showDialog<int>(
     context: context,
@@ -525,6 +490,9 @@ Future<int?> showTvNumberInputDialog(
         minValue: minValue,
         maxValue: maxValue,
         unit: unit,
+        prompt: prompt,
+        message: message,
+        confirmLabel: confirmLabel,
       );
     },
   );
@@ -537,6 +505,9 @@ class _TvNumberInputDialog extends StatefulWidget {
     required this.minValue,
     required this.maxValue,
     required this.unit,
+    required this.prompt,
+    required this.message,
+    required this.confirmLabel,
   });
 
   final String title;
@@ -544,6 +515,9 @@ class _TvNumberInputDialog extends StatefulWidget {
   final int minValue;
   final int maxValue;
   final String unit;
+  final String? prompt;
+  final String? message;
+  final String confirmLabel;
 
   @override
   State<_TvNumberInputDialog> createState() => _TvNumberInputDialogState();
@@ -560,6 +534,7 @@ class _TvNumberInputDialogState extends State<_TvNumberInputDialog> {
   void initState() {
     super.initState();
     _digits = widget.initialValue.toString();
+    _error = widget.message;
   }
 
   void _appendDigit(String digit) {
@@ -597,7 +572,9 @@ class _TvNumberInputDialogState extends State<_TvNumberInputDialog> {
     final int? value = int.tryParse(_digits);
     if (value == null || value < widget.minValue || value > widget.maxValue) {
       setState(() {
-        _error = '请输入 ${widget.minValue}–${widget.maxValue} ${widget.unit}';
+        final String range = '${widget.minValue}–${widget.maxValue}';
+        _error =
+            widget.unit.isEmpty ? '请输入 $range' : '请输入 $range ${widget.unit}';
       });
       return;
     }
@@ -653,8 +630,21 @@ class _TvNumberInputDialogState extends State<_TvNumberInputDialog> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
+                      if (widget.prompt != null) ...<Widget>[
+                        Text(
+                          widget.prompt!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 30,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                       Text(
-                        '${widget.minValue}–${widget.maxValue} ${widget.unit}',
+                        widget.unit.isEmpty
+                            ? '${widget.minValue}–${widget.maxValue}'
+                            : '${widget.minValue}–${widget.maxValue} ${widget.unit}',
                         style: const TextStyle(
                           color: Colors.white70,
                           fontSize: 17,
@@ -701,7 +691,7 @@ class _TvNumberInputDialogState extends State<_TvNumberInputDialog> {
         ),
         TvFocusableButton(
           icon: Icons.check,
-          label: '保存',
+          label: widget.confirmLabel,
           onPressed: _submit,
         ),
       ],

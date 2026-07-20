@@ -23,19 +23,13 @@ void main() {
       in TvAntiAddictionUnlockMode.values.where(
     (TvAntiAddictionUnlockMode value) => value.usesMath,
   )) {
-    test('${mode.name} creates three distinct choices containing the answer',
-        () {
+    test('${mode.name} creates answers that fit the two-digit keypad', () {
       final TvMathChallengeGenerator generator =
           TvMathChallengeGenerator(random: Random(100 + mode.index));
       for (int i = 0; i < 100; i++) {
         final TvMathChallenge challenge = generator.generate(mode);
         expect(challenge.prompt, isNotEmpty);
-        expect(challenge.options, hasLength(3));
-        expect(challenge.options.toSet(), hasLength(3));
-        expect(challenge.options, contains(challenge.answer));
-        if (mode == TvAntiAddictionUnlockMode.mathEasy) {
-          expect(challenge.answer, inInclusiveRange(0, 100));
-        }
+        expect(challenge.answer, inInclusiveRange(0, 99));
       }
     });
   }
