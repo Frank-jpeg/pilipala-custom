@@ -231,17 +231,36 @@ class _TabButton extends StatelessWidget {
       child: InkWell(
         onTap: item.onTap,
         borderRadius: BorderRadius.circular(8),
-        child: SizedBox(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
           height: 38,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: focused ? accent.withOpacity(0.18) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color:
+                  focused ? Colors.white.withOpacity(0.9) : Colors.transparent,
+              width: 1.5,
+            ),
+            boxShadow: focused
+                ? <BoxShadow>[
+                    BoxShadow(
+                      color: accent.withOpacity(0.28),
+                      blurRadius: 10,
+                    ),
+                  ]
+                : null,
+          ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
               AnimatedDefaultTextStyle(
                 duration: const Duration(milliseconds: 120),
                 style: TextStyle(
-                  color: selected
-                      ? accent
-                      : (focused ? Colors.white : Colors.white70),
+                  color: focused
+                      ? Colors.white
+                      : (selected ? accent : Colors.white70),
                   fontSize: 18,
                   fontWeight:
                       selected || focused ? FontWeight.w800 : FontWeight.w600,
