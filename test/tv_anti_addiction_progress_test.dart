@@ -28,6 +28,28 @@ void main() {
       expect(controller.sessionRemainingProgress, 0);
     });
 
+    test('temporary PIN extension overrides the configured session limit', () {
+      controller.sessionLimitMinutes.value = 1;
+      controller.temporarySessionLimitSeconds.value = 15 * 60;
+      controller.sessionUsedSeconds.value = 4 * 60;
+      controller.enabled.value = true;
+
+      expect(controller.hasTemporarySessionLimit, isTrue);
+      expect(controller.sessionLimitSeconds, 15 * 60);
+      expect(controller.sessionRemainingSeconds, 11 * 60);
+      expect(controller.sessionRemainingProgress, closeTo(11 / 15, 0.0001));
+      expect(controller.isSessionLimited, isFalse);
+
+      controller.sessionUsedSeconds.value = 15 * 60;
+
+      expect(controller.isSessionLimited, isTrue);
+
+      controller.resetSession();
+
+      expect(controller.hasTemporarySessionLimit, isFalse);
+      expect(controller.sessionLimitSeconds, 60);
+    });
+
     test('daily remaining values are available only with a daily limit', () {
       controller.dailyLimitMinutes.value = 120;
       controller.dailyUsedSeconds.value = 30 * 60;

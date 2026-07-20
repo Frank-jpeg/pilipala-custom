@@ -13,7 +13,6 @@ class TvAntiAddictionController extends GetxController
     with WidgetsBindingObserver {
   static const int defaultSessionLimitMinutes = 30;
   static const int defaultRestMinutes = 20;
-  static const int dailyUnlockExtraSeconds = 30 * 60;
 
   final RxBool enabled = false.obs;
   final RxInt sessionLimitMinutes = defaultSessionLimitMinutes.obs;
@@ -25,6 +24,7 @@ class TvAntiAddictionController extends GetxController
       Rxn<TvAntiAddictionLockReason>();
   final RxInt remainingLockSeconds = 0.obs;
   final RxInt sessionUsedSeconds = 0.obs;
+  final RxInt temporarySessionLimitSeconds = 0.obs;
 
   Timer? _watchTimer;
   Timer? _lockTimer;
@@ -45,7 +45,11 @@ class TvAntiAddictionController extends GetxController
       dailyLimitMinutes.value > 0 &&
       dailyUsedSeconds.value >= dailyLimitMinutes.value * 60;
 
-  int get sessionLimitSeconds => sessionLimitMinutes.value * 60;
+  bool get hasTemporarySessionLimit => temporarySessionLimitSeconds.value > 0;
+
+  int get sessionLimitSeconds => hasTemporarySessionLimit
+      ? temporarySessionLimitSeconds.value
+      : sessionLimitMinutes.value * 60;
 
   int get sessionRemainingSeconds =>
       (sessionLimitSeconds - sessionUsedSeconds.value)
@@ -55,6 +59,11 @@ class TvAntiAddictionController extends GetxController
   double get sessionRemainingProgress => sessionLimitSeconds <= 0
       ? 0
       : (sessionRemainingSeconds / sessionLimitSeconds).clamp(0.0, 1.0);
+
+  bool get isSessionLimited =>
+      enabled.value &&
+      sessionLimitSeconds > 0 &&
+      sessionUsedSeconds.value >= sessionLimitSeconds;
 
   bool get hasDailyLimit => dailyLimitMinutes.value > 0;
 
@@ -83,10 +92,10 @@ class TvAntiAddictionController extends GetxController
   String get lockSubtitle {
     switch (lockReason.value) {
       case TvAntiAddictionLockReason.dailyLimit:
-        return '输入家长 PIN 可追加 30 分钟，或明天再继续观看';
+        return '输入家长 PIN 后可选择延长 10、15 或 20 分钟，或明天再继续观看';
       case TvAntiAddictionLockReason.rest:
       default:
-        return '休息倒计时结束后可以继续观看，也可输入家长 PIN 临时解锁';
+        return '休息倒计时结束后可以继续观看，也可输入家长 PIN 选择延长时间';
     }
   }
 
@@ -199,34 +208,43 @@ class TvAntiAddictionController extends GetxController
     }
   }
 
-  void resetSession() {
+  void resetSession({bool clearTemporaryLimit = true}) {
     sessionUsedSeconds.value = 0;
+    if (clearTemporaryLimit) {
+      temporarySessionLimitSeconds.value = 0;
+    }
   }
 
-  void unlock({bool resume = true}) {
+  void unlock({
+    bool resume = true,
+    int temporaryLimitSeconds = 0,
+  }) {
     _lockTimer?.cancel();
     _lockTimer = null;
     isLocked.value = false;
     lockReason.value = null;
     remainingLockSeconds.value = 0;
     sessionUsedSeconds.value = 0;
+    temporarySessionLimitSeconds.value = temporaryLimitSeconds;
     GStrorage.setting.put(SettingBoxKey.tvAntiAddictionRestUntil, 0);
     if (resume) {
       _resumePlayback?.call();
     }
   }
 
-  Future<void> unlockByPin() async {
+  Future<void> unlockByPin(int extensionMinutes) async {
+    final int extensionSeconds =
+        extensionMinutes.clamp(1, 24 * 60).toInt() * 60;
     if (lockReason.value == TvAntiAddictionLockReason.dailyLimit) {
       final int next =
-          (dailyUsedSeconds.value - dailyUnlockExtraSeconds).clamp(0, 1 << 30);
+          (dailyUsedSeconds.value - extensionSeconds).clamp(0, 1 << 30);
       dailyUsedSeconds.value = next;
       await GStrorage.setting.put(
         SettingBoxKey.tvAntiAddictionDailyUsedSeconds,
         next,
       );
     }
-    unlock();
+    unlock(temporaryLimitSeconds: extensionSeconds);
   }
 
   void _tick() {
@@ -254,7 +272,7 @@ class TvAntiAddictionController extends GetxController
       _lock(TvAntiAddictionLockReason.dailyLimit);
       return;
     }
-    if (sessionUsedSeconds.value >= sessionLimitMinutes.value * 60) {
+    if (isSessionLimited) {
       final int restUntil = now + restMinutes.value * 60 * 1000;
       _lock(TvAntiAddictionLockReason.rest, restUntilMs: restUntil);
     }

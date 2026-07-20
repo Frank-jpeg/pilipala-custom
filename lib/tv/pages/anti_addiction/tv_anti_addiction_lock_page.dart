@@ -165,7 +165,11 @@ class _TvAntiAddictionLockOverlayState
         Get.snackbar('PIN 错误', '请重新输入 4 位家长 PIN');
         return;
       }
-      await controller.unlockByPin();
+      final int? extensionMinutes = await _openExtensionDialog();
+      if (extensionMinutes == null) {
+        return;
+      }
+      await controller.unlockByPin(extensionMinutes);
     } finally {
       if (mounted) {
         setState(() {
@@ -185,6 +189,20 @@ class _TvAntiAddictionLockOverlayState
       context,
       title: '家长 PIN 解锁',
       confirmLabel: '解锁',
+    );
+  }
+
+  Future<int?> _openExtensionDialog() {
+    final BuildContext? context = Get.overlayContext ?? Get.context;
+    if (context == null) {
+      return Future<int?>.value();
+    }
+    return showTvOptionDialog(
+      context: context,
+      title: '选择延长观看时间',
+      options: const <int>[10, 15, 20],
+      current: 15,
+      labelBuilder: (int value) => '$value 分钟',
     );
   }
 }
