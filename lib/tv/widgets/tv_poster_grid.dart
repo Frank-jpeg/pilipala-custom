@@ -9,12 +9,14 @@ class TvPosterGrid extends StatelessWidget {
     required this.onTap,
     this.initialAutofocus = false,
     this.crossAxisCount = 4,
+    this.firstFocusNode,
   });
 
   final List<TvVideoCardData> items;
   final ValueChanged<TvVideoCardData> onTap;
   final bool initialAutofocus;
   final int crossAxisCount;
+  final FocusNode? firstFocusNode;
 
   @override
   Widget build(BuildContext context) {
@@ -33,6 +35,7 @@ class TvPosterGrid extends StatelessWidget {
         return TvFocusableCard(
           data: item,
           autofocus: initialAutofocus && index == 0,
+          focusNode: index == 0 ? firstFocusNode : null,
           onPressed: () => onTap(item),
         );
       },

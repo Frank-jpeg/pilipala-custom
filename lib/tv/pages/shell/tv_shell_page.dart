@@ -181,7 +181,6 @@ class _TvShellPageState extends State<TvShellPage> {
       case LogicalKeyboardKey.arrowLeft:
         _focusSelectedTab();
         return KeyEventResult.handled;
-      case LogicalKeyboardKey.goBack:
       case LogicalKeyboardKey.escape:
         _focusSelectedTab();
         return KeyEventResult.handled;

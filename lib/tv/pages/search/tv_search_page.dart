@@ -17,9 +17,20 @@ class TvSearchPage extends StatefulWidget {
 class _TvSearchPageState extends State<TvSearchPage> {
   final TvSearchController _controller = Get.put(TvSearchController());
   final TextEditingController _textController = TextEditingController();
+  final FocusNode _inputFocusNode = FocusNode();
+  final FocusNode _firstResultFocusNode = FocusNode();
 
-  void _runSearch() {
-    _controller.search(_textController.text);
+  Future<void> _runSearch() async {
+    _inputFocusNode.unfocus();
+    await _controller.search(_textController.text);
+    if (!mounted || _controller.results.isEmpty) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _firstResultFocusNode.canRequestFocus) {
+        _firstResultFocusNode.requestFocus();
+      }
+    });
   }
 
   @override
@@ -54,11 +65,12 @@ class _TvSearchPageState extends State<TvSearchPage> {
                   Expanded(
                     child: TextField(
                       controller: _textController,
+                      focusNode: _inputFocusNode,
                       autofocus: true,
                       decoration: const InputDecoration(
                         hintText: '输入视频关键词',
                       ),
-                      onSubmitted: _controller.search,
+                      onSubmitted: (_) => _runSearch(),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -93,7 +105,7 @@ class _TvSearchPageState extends State<TvSearchPage> {
                       onPressed: () {
                         final String value = item.keyword ?? '';
                         _textController.text = value;
-                        _controller.search(value);
+                        _runSearch();
                       },
                     );
                   }).toList(),
@@ -114,6 +126,7 @@ class _TvSearchPageState extends State<TvSearchPage> {
                             .map(TvVideoMapper.fromSearch)
                             .toList(growable: false),
                         initialAutofocus: false,
+                        firstFocusNode: _firstResultFocusNode,
                         onTap: (data) {
                           Get.toNamed(
                             '${TvRoutes.video}?bvid=${data.bvid}&cid=${data.cid}&aid=${data.aid}',
@@ -130,6 +143,8 @@ class _TvSearchPageState extends State<TvSearchPage> {
 
   @override
   void dispose() {
+    _inputFocusNode.dispose();
+    _firstResultFocusNode.dispose();
     _textController.dispose();
     super.dispose();
   }

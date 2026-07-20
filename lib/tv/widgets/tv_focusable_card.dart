@@ -12,6 +12,7 @@ class TvFocusableCard extends StatefulWidget {
     this.width = 220,
     this.height = 164,
     this.autofocus = false,
+    this.focusNode,
     this.onFocused,
   });
 
@@ -20,6 +21,7 @@ class TvFocusableCard extends StatefulWidget {
   final double width;
   final double height;
   final bool autofocus;
+  final FocusNode? focusNode;
   final ValueChanged<bool>? onFocused;
 
   @override
@@ -32,6 +34,7 @@ class _TvFocusableCardState extends State<TvFocusableCard> {
   @override
   Widget build(BuildContext context) {
     return Focus(
+      focusNode: widget.focusNode,
       autofocus: widget.autofocus,
       onKeyEvent: (FocusNode node, KeyEvent event) {
         if (event is KeyDownEvent &&
@@ -46,6 +49,18 @@ class _TvFocusableCardState extends State<TvFocusableCard> {
         setState(() {
           _focused = value;
         });
+        if (value) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) {
+              return;
+            }
+            Scrollable.ensureVisible(
+              context,
+              duration: const Duration(milliseconds: 180),
+              alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+            );
+          });
+        }
         widget.onFocused?.call(value);
       },
       child: AnimatedContainer(
