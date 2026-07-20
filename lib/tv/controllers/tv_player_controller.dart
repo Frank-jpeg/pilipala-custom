@@ -175,13 +175,13 @@ class TvPlayerController extends GetxController {
       await player.getCurrentVolume();
       volume.value = player.volume.value;
       playbackSpeed.value = player.playbackSpeed;
-      _syncAntiAddictionWithPlayer();
       showControlsTemporarily();
     } catch (e) {
       error.value = '播放器初始化失败: $e';
       SmartDialog.showToast(error.value!);
     } finally {
       loading.value = false;
+      _syncAntiAddictionWithPlayer();
     }
   }
 
