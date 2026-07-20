@@ -262,6 +262,8 @@ class TvSettingsPage extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 18),
+              _WatchTimeProgressPanel(controller: controller),
+              const SizedBox(height: 18),
               _SettingRow(
                 title: '家长 PIN',
                 subtitle: '用于关闭/修改防沉迷，以及锁页临时解锁',
@@ -280,6 +282,194 @@ class TvSettingsPage extends StatelessWidget {
       ),
     );
   }
+}
+
+class _WatchTimeProgressPanel extends StatelessWidget {
+  const _WatchTimeProgressPanel({required this.controller});
+
+  static const Color _activeColor = Color(0xFFFF7BAC);
+  static const Color _warningColor = Color(0xFFFFB04A);
+  static const Color _exhaustedColor = Color(0xFFFF5B67);
+  static const Color _disabledColor = Color(0xFF667085);
+
+  final TvSettingsController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool enabled = controller.antiAddiction.enabled.value;
+    final bool hasDailyLimit = controller.antiAddiction.hasDailyLimit;
+    final double sessionProgress =
+        controller.antiAddiction.sessionRemainingProgress;
+    final double dailyProgress =
+        controller.antiAddiction.dailyRemainingProgress;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF121A2B),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              const Expanded(
+                child: Text(
+                  '观看时间',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Text(
+                enabled ? '防沉迷已开启' : '防沉迷未开启',
+                style: TextStyle(
+                  color: enabled ? _activeColor : Colors.white54,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          _WatchTimeProgressRow(
+            label: '本次剩余观看时间',
+            value: enabled
+                ? _remainingLabel(
+                    remainingSeconds:
+                        controller.antiAddiction.sessionRemainingSeconds,
+                    limitSeconds: controller.antiAddiction.sessionLimitSeconds,
+                    exhaustedText: '本次额度已用完',
+                  )
+                : '防沉迷未开启',
+            progress: enabled ? sessionProgress : 0,
+            color: enabled ? _progressColor(sessionProgress) : _disabledColor,
+          ),
+          const SizedBox(height: 18),
+          _WatchTimeProgressRow(
+            label: hasDailyLimit ? '今日剩余观看时间' : '今日已观看',
+            value: !enabled
+                ? '防沉迷未开启'
+                : hasDailyLimit
+                    ? _remainingLabel(
+                        remainingSeconds:
+                            controller.antiAddiction.dailyRemainingSeconds,
+                        limitSeconds:
+                            controller.antiAddiction.dailyLimitSeconds,
+                        exhaustedText: '今日额度已用完',
+                      )
+                    : '今日已观看 ${_formatWatchTime(controller.antiAddiction.dailyUsedSeconds.value)}',
+            progress: enabled && hasDailyLimit ? dailyProgress : 0,
+            color: enabled && hasDailyLimit
+                ? _progressColor(dailyProgress)
+                : _disabledColor,
+          ),
+        ],
+      ),
+    );
+  }
+
+  static Color _progressColor(double progress) {
+    if (progress <= 0) {
+      return _exhaustedColor;
+    }
+    if (progress <= 0.2) {
+      return _warningColor;
+    }
+    return _activeColor;
+  }
+
+  static String _remainingLabel({
+    required int remainingSeconds,
+    required int limitSeconds,
+    required String exhaustedText,
+  }) {
+    if (remainingSeconds <= 0) {
+      return exhaustedText;
+    }
+    return '剩余 ${_formatWatchTime(remainingSeconds)} / ${_formatWatchTime(limitSeconds)}';
+  }
+}
+
+class _WatchTimeProgressRow extends StatelessWidget {
+  const _WatchTimeProgressRow({
+    required this.label,
+    required this.value,
+    required this.progress,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final double progress;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(width: 20),
+            Flexible(
+              child: Text(
+                value,
+                textAlign: TextAlign.right,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 9),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: SizedBox(
+            height: 8,
+            child: LinearProgressIndicator(
+              value: progress.clamp(0.0, 1.0),
+              color: color,
+              backgroundColor: Colors.white.withOpacity(0.1),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+String _formatWatchTime(int totalSeconds) {
+  final int seconds = totalSeconds < 0 ? 0 : totalSeconds;
+  final int hours = seconds ~/ 3600;
+  final int minutes = (seconds % 3600) ~/ 60;
+  final int remainderSeconds = seconds % 60;
+  if (hours > 0) {
+    return minutes > 0 ? '$hours小时$minutes分钟' : '$hours小时';
+  }
+  if (minutes > 0) {
+    return remainderSeconds > 0 ? '$minutes分$remainderSeconds秒' : '$minutes分钟';
+  }
+  return '$remainderSeconds秒';
 }
 
 String _danmakuBlockLabel(

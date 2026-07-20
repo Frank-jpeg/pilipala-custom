@@ -45,6 +45,31 @@ class TvAntiAddictionController extends GetxController
       dailyLimitMinutes.value > 0 &&
       dailyUsedSeconds.value >= dailyLimitMinutes.value * 60;
 
+  int get sessionLimitSeconds => sessionLimitMinutes.value * 60;
+
+  int get sessionRemainingSeconds =>
+      (sessionLimitSeconds - sessionUsedSeconds.value)
+          .clamp(0, sessionLimitSeconds)
+          .toInt();
+
+  double get sessionRemainingProgress => sessionLimitSeconds <= 0
+      ? 0
+      : (sessionRemainingSeconds / sessionLimitSeconds).clamp(0.0, 1.0);
+
+  bool get hasDailyLimit => dailyLimitMinutes.value > 0;
+
+  int get dailyLimitSeconds => dailyLimitMinutes.value * 60;
+
+  int get dailyRemainingSeconds => !hasDailyLimit
+      ? 0
+      : (dailyLimitSeconds - dailyUsedSeconds.value)
+          .clamp(0, dailyLimitSeconds)
+          .toInt();
+
+  double get dailyRemainingProgress => !hasDailyLimit || dailyLimitSeconds <= 0
+      ? 0
+      : (dailyRemainingSeconds / dailyLimitSeconds).clamp(0.0, 1.0);
+
   String get lockTitle {
     switch (lockReason.value) {
       case TvAntiAddictionLockReason.dailyLimit:
