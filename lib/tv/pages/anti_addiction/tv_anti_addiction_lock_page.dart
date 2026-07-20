@@ -16,31 +16,41 @@ class _TvAntiAddictionLockOverlayState
     extends State<TvAntiAddictionLockOverlay> {
   final TvAntiAddictionController controller =
       Get.find<TvAntiAddictionController>();
-  final FocusNode _lockFocusNode = FocusNode(debugLabel: 'tvAntiAddictionLock');
+  final FocusNode _unlockFocusNode =
+      FocusNode(debugLabel: 'tvAntiAddictionUnlock');
   Worker? _lockWorker;
   bool _pinDialogShowing = false;
 
   @override
   void initState() {
     super.initState();
-    // autofocus 在根 scope 已有焦点子节点时会被丢弃，导致锁屏抢不到焦点、拦不住遥控器。
-    // 这里在锁定生效时主动把焦点移入锁屏，确保它真正接管 DPAD/OK 输入。
     _lockWorker = ever<bool>(controller.isLocked, (bool locked) {
       if (!locked) {
         return;
       }
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && controller.isLocked.value) {
-          _lockFocusNode.requestFocus();
-        }
-      });
+      _requestUnlockFocus();
+    });
+    _requestUnlockFocus();
+  }
+
+  void _requestUnlockFocus() {
+    void request() {
+      if (mounted && controller.isLocked.value && !_pinDialogShowing) {
+        _unlockFocusNode.requestFocus();
+      }
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      request();
+      // Navigator 的 ModalScope 也会在当前帧恢复焦点；下一帧再次确认锁页按钮持有主焦点。
+      WidgetsBinding.instance.addPostFrameCallback((_) => request());
     });
   }
 
   @override
   void dispose() {
     _lockWorker?.dispose();
-    _lockFocusNode.dispose();
+    _unlockFocusNode.dispose();
     super.dispose();
   }
 
@@ -48,13 +58,12 @@ class _TvAntiAddictionLockOverlayState
   Widget build(BuildContext context) {
     return Obx(
       () {
-        if (!controller.isLocked.value) {
+        if (!controller.isLocked.value || _pinDialogShowing) {
           return const SizedBox.shrink();
         }
         return Positioned.fill(
           child: Focus(
-            focusNode: _lockFocusNode,
-            autofocus: true,
+            canRequestFocus: false,
             onKeyEvent: _handleLockKey,
             child: PopScope(
               canPop: false,
@@ -100,6 +109,7 @@ class _TvAntiAddictionLockOverlayState
                           const SizedBox(height: 30),
                           TvFocusableButton(
                             autofocus: true,
+                            focusNode: _unlockFocusNode,
                             icon: Icons.pin_outlined,
                             label: '家长 PIN 解锁',
                             onPressed: _showPinDialog,
@@ -130,7 +140,7 @@ class _TvAntiAddictionLockOverlayState
       }
       return KeyEventResult.handled;
     }
-    // 锁屏期间吞掉方向键 / 返回键等其它按键，禁止焦点遍历到锁屏背后的控件。
+    // 锁屏期间吞掉其它按键，禁止焦点遍历到锁屏背后的控件。
     return KeyEventResult.handled;
   }
 
@@ -138,19 +148,16 @@ class _TvAntiAddictionLockOverlayState
     if (_pinDialogShowing) {
       return;
     }
-    // 锁屏 overlay 挂在 Navigator 之外，其 context 没有 Navigator 祖先，
-    // 直接用它调 showDialog 会崩；改用 GetMaterialApp 的导航 context。
-    final BuildContext? dialogContext = Get.overlayContext ?? Get.context;
-    if (dialogContext == null) {
-      return;
-    }
-    _pinDialogShowing = true;
+    setState(() {
+      _pinDialogShowing = true;
+    });
     try {
-      final String? pin = await showTvPinDialog(
-        dialogContext,
-        title: '家长 PIN 解锁',
-        confirmLabel: '解锁',
-      );
+      // 锁屏位于 Navigator 之上；先让它退出当前帧，PIN 对话框才能显示在最上层并接管焦点。
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) {
+        return;
+      }
+      final String? pin = await _openPinDialog();
       if (pin == null) {
         return;
       }
@@ -160,12 +167,25 @@ class _TvAntiAddictionLockOverlayState
       }
       await controller.unlockByPin();
     } finally {
-      _pinDialogShowing = false;
-      // PIN 错误或取消后仍处于锁定，把焦点收回锁屏。
-      if (mounted && controller.isLocked.value) {
-        _lockFocusNode.requestFocus();
+      if (mounted) {
+        setState(() {
+          _pinDialogShowing = false;
+        });
+        _requestUnlockFocus();
       }
     }
+  }
+
+  Future<String?> _openPinDialog() {
+    final BuildContext? context = Get.overlayContext ?? Get.context;
+    if (context == null) {
+      return Future<String?>.value();
+    }
+    return showTvPinDialog(
+      context,
+      title: '家长 PIN 解锁',
+      confirmLabel: '解锁',
+    );
   }
 }
 
@@ -179,24 +199,23 @@ class _LockCountdown extends StatelessWidget {
     // 之前这些 Rx 读取在外层 Obx 闭包之外，休息倒计时不会逐秒刷新；用自己的 Obx 订阅。
     return Obx(() {
       if (controller.lockReason.value == TvAntiAddictionLockReason.dailyLimit) {
-        return const Text(
-          '今日已锁定',
-          style: TextStyle(
-            color: Color(0xFFFF7BAC),
-            fontSize: 30,
-            fontWeight: FontWeight.w900,
-          ),
+        return const _CountdownRing(
+          progress: 0,
+          primaryText: '今日',
+          secondaryText: '已锁定',
         );
       }
       final int seconds = controller.remainingLockSeconds.value;
-      return Text(
-        _formatDuration(seconds),
-        style: const TextStyle(
-          color: Color(0xFFFF7BAC),
-          fontSize: 44,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 1,
-        ),
+      final int totalSeconds = controller.restMinutes.value * 60;
+      final double progress =
+          totalSeconds <= 0 ? 0 : (seconds / totalSeconds).clamp(0.0, 1.0);
+      return _CountdownRing(
+        progress: progress,
+        previousProgress: totalSeconds <= 0
+            ? progress
+            : (progress + 1 / totalSeconds).clamp(0.0, 1.0),
+        primaryText: _formatDuration(seconds),
+        secondaryText: '剩余休息',
       );
     });
   }
@@ -206,6 +225,74 @@ class _LockCountdown extends StatelessWidget {
     final int remainSeconds = seconds % 60;
     return '${minutes.toString().padLeft(2, '0')}:'
         '${remainSeconds.toString().padLeft(2, '0')}';
+  }
+}
+
+class _CountdownRing extends StatelessWidget {
+  const _CountdownRing({
+    required this.progress,
+    required this.primaryText,
+    required this.secondaryText,
+    this.previousProgress,
+  });
+
+  final double progress;
+  final double? previousProgress;
+  final String primaryText;
+  final String secondaryText;
+
+  @override
+  Widget build(BuildContext context) {
+    const Color accent = Color(0xFFFF7BAC);
+    return SizedBox.square(
+      dimension: 176,
+      child: Stack(
+        fit: StackFit.expand,
+        children: <Widget>[
+          TweenAnimationBuilder<double>(
+            tween: Tween<double>(
+              begin: previousProgress ?? progress,
+              end: progress,
+            ),
+            duration: const Duration(milliseconds: 720),
+            curve: Curves.easeOut,
+            builder: (BuildContext context, double value, Widget? child) {
+              return CircularProgressIndicator(
+                value: value,
+                strokeWidth: 10,
+                strokeCap: StrokeCap.round,
+                backgroundColor: Colors.white.withOpacity(0.12),
+                color: accent,
+              );
+            },
+          ),
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  primaryText,
+                  style: const TextStyle(
+                    color: accent,
+                    fontSize: 34,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  secondaryText,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

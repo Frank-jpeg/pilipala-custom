@@ -8,6 +8,7 @@ class TvFocusableButton extends StatefulWidget {
     required this.onPressed,
     this.icon,
     this.autofocus = false,
+    this.focusNode,
     this.onFocused,
   });
 
@@ -15,6 +16,7 @@ class TvFocusableButton extends StatefulWidget {
   final VoidCallback onPressed;
   final IconData? icon;
   final bool autofocus;
+  final FocusNode? focusNode;
   final ValueChanged<bool>? onFocused;
 
   @override
@@ -28,6 +30,7 @@ class _TvFocusableButtonState extends State<TvFocusableButton> {
   Widget build(BuildContext context) {
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
     return Focus(
+      focusNode: widget.focusNode,
       autofocus: widget.autofocus,
       onKeyEvent: (FocusNode node, KeyEvent event) {
         if (event is KeyDownEvent &&
