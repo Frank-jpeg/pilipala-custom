@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
+import 'package:pilipala/tv/models/tv_anti_addiction_unlock.dart';
 import 'package:pilipala/utils/storage.dart';
 
 enum TvAntiAddictionLockReason {
@@ -25,6 +26,8 @@ class TvAntiAddictionController extends GetxController
   final RxInt remainingLockSeconds = 0.obs;
   final RxInt sessionUsedSeconds = 0.obs;
   final RxInt temporarySessionLimitSeconds = 0.obs;
+  final Rx<TvAntiAddictionUnlockMode> unlockMode =
+      TvAntiAddictionUnlockMode.pin.obs;
 
   Timer? _watchTimer;
   Timer? _lockTimer;
@@ -90,12 +93,17 @@ class TvAntiAddictionController extends GetxController
   }
 
   String get lockSubtitle {
+    final bool usesMath = unlockMode.value.usesMath;
     switch (lockReason.value) {
       case TvAntiAddictionLockReason.dailyLimit:
-        return '输入家长 PIN 后可选择延长 10、15 或 20 分钟，或明天再继续观看';
+        return usesMath
+            ? '完成一道${unlockMode.value.label}，或使用家长 PIN，可选择延长观看时间'
+            : '输入家长 PIN 后可选择延长 10、15 或 20 分钟，或明天再继续观看';
       case TvAntiAddictionLockReason.rest:
       default:
-        return '休息倒计时结束后可以继续观看，也可输入家长 PIN 选择延长时间';
+        return usesMath
+            ? '完成一道${unlockMode.value.label}，或使用家长 PIN，可选择延长观看时间'
+            : '休息倒计时结束后可以继续观看，也可输入家长 PIN 选择延长时间';
     }
   }
 
@@ -121,6 +129,12 @@ class TvAntiAddictionController extends GetxController
       SettingBoxKey.tvAntiAddictionDailyUsedSeconds,
       defaultValue: 0,
     ) as int;
+    unlockMode.value = parseTvAntiAddictionUnlockMode(
+      GStrorage.setting.get(
+        SettingBoxKey.tvAntiAddictionUnlockMode,
+        defaultValue: TvAntiAddictionUnlockMode.pin.name,
+      ),
+    );
     final int restUntil = GStrorage.setting.get(
       SettingBoxKey.tvAntiAddictionRestUntil,
       defaultValue: 0,
@@ -169,6 +183,14 @@ class TvAntiAddictionController extends GetxController
 
   Future<void> setPin(String value) async {
     await GStrorage.setting.put(SettingBoxKey.tvAntiAddictionPin, value);
+  }
+
+  Future<void> setUnlockMode(TvAntiAddictionUnlockMode value) async {
+    unlockMode.value = value;
+    await GStrorage.setting.put(
+      SettingBoxKey.tvAntiAddictionUnlockMode,
+      value.name,
+    );
   }
 
   bool verifyPin(String value) => hasPin && value == pin;
@@ -232,7 +254,7 @@ class TvAntiAddictionController extends GetxController
     }
   }
 
-  Future<void> unlockByPin(int extensionMinutes) async {
+  Future<void> unlockWithExtension(int extensionMinutes) async {
     final int extensionSeconds =
         extensionMinutes.clamp(1, 24 * 60).toInt() * 60;
     if (lockReason.value == TvAntiAddictionLockReason.dailyLimit) {

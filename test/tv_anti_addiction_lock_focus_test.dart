@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:pilipala/tv/controllers/tv_anti_addiction_controller.dart';
+import 'package:pilipala/tv/models/tv_anti_addiction_unlock.dart';
 import 'package:pilipala/tv/pages/anti_addiction/tv_anti_addiction_lock_page.dart';
 
 class _FakeAntiAddictionController extends TvAntiAddictionController {
@@ -15,7 +16,7 @@ class _FakeAntiAddictionController extends TvAntiAddictionController {
   bool verifyPin(String value) => true;
 
   @override
-  Future<void> unlockByPin(int extensionMinutes) async {
+  Future<void> unlockWithExtension(int extensionMinutes) async {
     grantedExtensionMinutes = extensionMinutes;
     isLocked.value = false;
   }
@@ -122,6 +123,82 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(controller.grantedExtensionMinutes, 15);
+    expect(controller.isLocked.value, isFalse);
+  });
+
+  testWidgets('math mode retries a wrong answer and keeps PIN fallback',
+      (WidgetTester tester) async {
+    final _FakeAntiAddictionController controller =
+        _FakeAntiAddictionController();
+    controller.isLocked.value = true;
+    controller.lockReason.value = TvAntiAddictionLockReason.rest;
+    controller.restMinutes.value = 20;
+    controller.remainingLockSeconds.value = 20 * 60;
+    controller.unlockMode.value = TvAntiAddictionUnlockMode.mathEasy;
+    Get.put<TvAntiAddictionController>(controller);
+
+    int generated = 0;
+    TvMathChallenge createChallenge(TvAntiAddictionUnlockMode mode) {
+      generated++;
+      return generated == 1
+          ? const TvMathChallenge(
+              prompt: '2 + 3 = ?',
+              answer: 5,
+              options: <int>[4, 5, 6],
+            )
+          : const TvMathChallenge(
+              prompt: '4 + 4 = ?',
+              answer: 8,
+              options: <int>[7, 8, 9],
+            );
+    }
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        home: const Scaffold(body: SizedBox.expand()),
+        builder: (BuildContext context, Widget? child) {
+          return Stack(
+            children: <Widget>[
+              Positioned.fill(child: child ?? const SizedBox.shrink()),
+              TvAntiAddictionLockOverlay(
+                challengeFactory: createChallenge,
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('算术解锁'), findsOneWidget);
+    expect(find.text('使用家长 PIN'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    expect(
+      FocusManager.instance.primaryFocus?.debugLabel,
+      'tvAntiAddictionPinFallback',
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(find.text('1'), findsOneWidget);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(find.text('2 + 3 = ?'), findsOneWidget);
+
+    await tester.tap(find.text('4'));
+    await tester.pumpAndSettle();
+    expect(find.text('答案不对，已换一题'), findsOneWidget);
+    expect(find.text('4 + 4 = ?'), findsOneWidget);
+
+    await tester.tap(find.text('8'));
+    await tester.pumpAndSettle();
+    expect(find.text('选择延长观看时间'), findsOneWidget);
+    await tester.tap(find.text('10 分钟'));
+    await tester.pumpAndSettle();
+
+    expect(controller.grantedExtensionMinutes, 10);
     expect(controller.isLocked.value, isFalse);
   });
 }

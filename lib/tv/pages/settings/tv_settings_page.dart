@@ -267,6 +267,21 @@ class TvSettingsPage extends StatelessWidget {
               ),
               const SizedBox(height: 18),
               _SettingRow(
+                title: '解锁方式',
+                subtitle: controller.unlockUsesMath
+                    ? '答题解锁时始终保留家长 PIN 备用入口'
+                    : '使用 4 位家长 PIN 验证后解锁',
+                value: controller.unlockModeLabel,
+                actions: <Widget>[
+                  TvFocusableButton(
+                    label: '选择',
+                    icon: Icons.quiz_outlined,
+                    onPressed: () => controller.selectUnlockMode(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              _SettingRow(
                 title: '家长 PIN',
                 subtitle: '用于关闭/修改防沉迷，以及锁页临时解锁',
                 value: controller.pinStatus,

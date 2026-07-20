@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:pilipala/tv/controllers/tv_anti_addiction_controller.dart';
 import 'package:pilipala/tv/controllers/tv_home_controller.dart';
+import 'package:pilipala/tv/models/tv_anti_addiction_unlock.dart';
 import 'package:pilipala/tv/pages/anti_addiction/tv_anti_addiction_lock_page.dart';
 import 'package:pilipala/utils/global_data_cache.dart';
 import 'package:pilipala/utils/storage.dart';
@@ -253,6 +254,10 @@ class TvSettingsController extends GetxController {
 
   String get pinStatus => antiAddiction.hasPin ? '已设置' : '未设置';
 
+  String get unlockModeLabel => antiAddiction.unlockMode.value.label;
+
+  bool get unlockUsesMath => antiAddiction.unlockMode.value.usesMath;
+
   Future<void> toggleAntiAddiction(BuildContext context) async {
     if (antiAddiction.enabled.value) {
       if (!await _verifyPinIfNeeded(context)) {
@@ -382,8 +387,39 @@ class TvSettingsController extends GetxController {
     await antiAddiction.setDailyLimitMinutes(value);
   }
 
-  Future<bool> _verifyPinIfNeeded(BuildContext context) async {
-    if (!antiAddiction.enabled.value || !antiAddiction.hasPin) {
+  Future<void> selectUnlockMode(BuildContext context) async {
+    if (!antiAddiction.hasPin) {
+      final bool created = await setOrChangePin(context);
+      if (!created) {
+        return;
+      }
+      _pinVerifiedForEdit = true;
+    } else if (!await _verifyPinIfNeeded(context, force: true)) {
+      return;
+    }
+    final int? selected = await _showIntOptionDialog(
+      title: '选择解锁方式',
+      options: List<int>.generate(
+        TvAntiAddictionUnlockMode.values.length,
+        (int index) => index,
+      ),
+      current: antiAddiction.unlockMode.value.index,
+      labelBuilder: (int index) =>
+          TvAntiAddictionUnlockMode.values[index].label,
+    );
+    if (selected == null) {
+      return;
+    }
+    await antiAddiction.setUnlockMode(
+      TvAntiAddictionUnlockMode.values[selected],
+    );
+  }
+
+  Future<bool> _verifyPinIfNeeded(
+    BuildContext context, {
+    bool force = false,
+  }) async {
+    if ((!force && !antiAddiction.enabled.value) || !antiAddiction.hasPin) {
       return true;
     }
     if (_pinVerifiedForEdit) {

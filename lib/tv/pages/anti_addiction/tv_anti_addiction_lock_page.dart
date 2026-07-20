@@ -2,10 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:pilipala/tv/controllers/tv_anti_addiction_controller.dart';
+import 'package:pilipala/tv/models/tv_anti_addiction_unlock.dart';
 import 'package:pilipala/tv/widgets/tv_focusable_button.dart';
 
 class TvAntiAddictionLockOverlay extends StatefulWidget {
-  const TvAntiAddictionLockOverlay({super.key});
+  const TvAntiAddictionLockOverlay({
+    super.key,
+    this.challengeFactory,
+  });
+
+  final TvMathChallenge Function(TvAntiAddictionUnlockMode mode)?
+      challengeFactory;
 
   @override
   State<TvAntiAddictionLockOverlay> createState() =>
@@ -18,12 +25,16 @@ class _TvAntiAddictionLockOverlayState
       Get.find<TvAntiAddictionController>();
   final FocusNode _unlockFocusNode =
       FocusNode(debugLabel: 'tvAntiAddictionUnlock');
+  final FocusNode _pinFallbackFocusNode =
+      FocusNode(debugLabel: 'tvAntiAddictionPinFallback');
+  late final TvMathChallengeGenerator _challengeGenerator;
   Worker? _lockWorker;
-  bool _pinDialogShowing = false;
+  bool _unlockDialogShowing = false;
 
   @override
   void initState() {
     super.initState();
+    _challengeGenerator = TvMathChallengeGenerator();
     _lockWorker = ever<bool>(controller.isLocked, (bool locked) {
       if (!locked) {
         return;
@@ -35,7 +46,7 @@ class _TvAntiAddictionLockOverlayState
 
   void _requestUnlockFocus() {
     void request() {
-      if (mounted && controller.isLocked.value && !_pinDialogShowing) {
+      if (mounted && controller.isLocked.value && !_unlockDialogShowing) {
         _unlockFocusNode.requestFocus();
       }
     }
@@ -51,6 +62,7 @@ class _TvAntiAddictionLockOverlayState
   void dispose() {
     _lockWorker?.dispose();
     _unlockFocusNode.dispose();
+    _pinFallbackFocusNode.dispose();
     super.dispose();
   }
 
@@ -58,7 +70,7 @@ class _TvAntiAddictionLockOverlayState
   Widget build(BuildContext context) {
     return Obx(
       () {
-        if (!controller.isLocked.value || _pinDialogShowing) {
+        if (!controller.isLocked.value || _unlockDialogShowing) {
           return const SizedBox.shrink();
         }
         return Positioned.fill(
@@ -107,12 +119,30 @@ class _TvAntiAddictionLockOverlayState
                           const SizedBox(height: 28),
                           _LockCountdown(controller: controller),
                           const SizedBox(height: 30),
-                          TvFocusableButton(
-                            autofocus: true,
-                            focusNode: _unlockFocusNode,
-                            icon: Icons.pin_outlined,
-                            label: '家长 PIN 解锁',
-                            onPressed: _showPinDialog,
+                          Wrap(
+                            spacing: 16,
+                            runSpacing: 12,
+                            alignment: WrapAlignment.center,
+                            children: <Widget>[
+                              TvFocusableButton(
+                                autofocus: true,
+                                focusNode: _unlockFocusNode,
+                                icon: controller.unlockMode.value.usesMath
+                                    ? Icons.calculate_outlined
+                                    : Icons.pin_outlined,
+                                label: controller.unlockMode.value.usesMath
+                                    ? '算术解锁'
+                                    : '家长 PIN 解锁',
+                                onPressed: _showPrimaryUnlock,
+                              ),
+                              if (controller.unlockMode.value.usesMath)
+                                TvFocusableButton(
+                                  focusNode: _pinFallbackFocusNode,
+                                  icon: Icons.pin_outlined,
+                                  label: '使用家长 PIN',
+                                  onPressed: _showPinDialog,
+                                ),
+                            ],
                           ),
                         ],
                       ),
@@ -132,11 +162,23 @@ class _TvAntiAddictionLockOverlayState
       return KeyEventResult.ignored;
     }
     final LogicalKeyboardKey key = event.logicalKey;
+    if (controller.unlockMode.value.usesMath &&
+        key == LogicalKeyboardKey.arrowRight &&
+        _unlockFocusNode.hasFocus) {
+      _pinFallbackFocusNode.requestFocus();
+      return KeyEventResult.handled;
+    }
+    if (controller.unlockMode.value.usesMath &&
+        key == LogicalKeyboardKey.arrowLeft &&
+        _pinFallbackFocusNode.hasFocus) {
+      _unlockFocusNode.requestFocus();
+      return KeyEventResult.handled;
+    }
     if (key == LogicalKeyboardKey.select ||
         key == LogicalKeyboardKey.enter ||
         key == LogicalKeyboardKey.gameButtonA) {
       if (event is KeyDownEvent) {
-        _showPinDialog();
+        _showPrimaryUnlock();
       }
       return KeyEventResult.handled;
     }
@@ -144,36 +186,82 @@ class _TvAntiAddictionLockOverlayState
     return KeyEventResult.handled;
   }
 
-  Future<void> _showPinDialog() async {
-    if (_pinDialogShowing) {
+  void _showPrimaryUnlock() {
+    if (controller.unlockMode.value.usesMath) {
+      _showMathDialog();
+    } else {
+      _showPinDialog();
+    }
+  }
+
+  Future<void> _showPinDialog() {
+    return _runUnlockFlow(() async {
+      final String? pin = await _openPinDialog();
+      if (pin == null) {
+        return false;
+      }
+      if (!controller.verifyPin(pin)) {
+        Get.snackbar('PIN 错误', '请重新输入 4 位家长 PIN');
+        return false;
+      }
+      return true;
+    });
+  }
+
+  Future<void> _showMathDialog() {
+    return _runUnlockFlow(() async {
+      bool answeredWrong = false;
+      while (mounted && controller.isLocked.value) {
+        final TvAntiAddictionUnlockMode mode = controller.unlockMode.value;
+        if (!mode.usesMath) {
+          return false;
+        }
+        final TvMathChallenge challenge = widget.challengeFactory?.call(mode) ??
+            _challengeGenerator.generate(mode);
+        final int? selected = await _openMathChallengeDialog(
+          mode: mode,
+          challenge: challenge,
+          showWrongMessage: answeredWrong,
+        );
+        if (selected == null) {
+          return false;
+        }
+        if (selected == challenge.answer) {
+          return true;
+        }
+        answeredWrong = true;
+      }
+      return false;
+    });
+  }
+
+  Future<void> _runUnlockFlow(
+    Future<bool> Function() verify,
+  ) async {
+    if (_unlockDialogShowing) {
       return;
     }
     setState(() {
-      _pinDialogShowing = true;
+      _unlockDialogShowing = true;
     });
     try {
-      // 锁屏位于 Navigator 之上；先让它退出当前帧，PIN 对话框才能显示在最上层并接管焦点。
+      // 锁屏位于 Navigator 之上；先让它退出当前帧，对话框才能显示在最上层并接管焦点。
       await WidgetsBinding.instance.endOfFrame;
       if (!mounted) {
         return;
       }
-      final String? pin = await _openPinDialog();
-      if (pin == null) {
-        return;
-      }
-      if (!controller.verifyPin(pin)) {
-        Get.snackbar('PIN 错误', '请重新输入 4 位家长 PIN');
+      if (!await verify()) {
         return;
       }
       final int? extensionMinutes = await _openExtensionDialog();
       if (extensionMinutes == null) {
         return;
       }
-      await controller.unlockByPin(extensionMinutes);
+      await controller.unlockWithExtension(extensionMinutes);
     } finally {
       if (mounted) {
         setState(() {
-          _pinDialogShowing = false;
+          _unlockDialogShowing = false;
         });
         _requestUnlockFocus();
       }
@@ -189,6 +277,23 @@ class _TvAntiAddictionLockOverlayState
       context,
       title: '家长 PIN 解锁',
       confirmLabel: '解锁',
+    );
+  }
+
+  Future<int?> _openMathChallengeDialog({
+    required TvAntiAddictionUnlockMode mode,
+    required TvMathChallenge challenge,
+    required bool showWrongMessage,
+  }) {
+    final BuildContext? context = Get.overlayContext ?? Get.context;
+    if (context == null) {
+      return Future<int?>.value();
+    }
+    return showTvMathChallengeDialog(
+      context: context,
+      mode: mode,
+      challenge: challenge,
+      showWrongMessage: showWrongMessage,
     );
   }
 
@@ -312,6 +417,80 @@ class _CountdownRing extends StatelessWidget {
       ),
     );
   }
+}
+
+Future<int?> showTvMathChallengeDialog({
+  required BuildContext context,
+  required TvAntiAddictionUnlockMode mode,
+  required TvMathChallenge challenge,
+  bool showWrongMessage = false,
+}) {
+  return showDialog<int>(
+    context: context,
+    barrierDismissible: false,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        backgroundColor: const Color(0xFF121A2B),
+        title: Text(mode.label),
+        content: SizedBox(
+          width: 560,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              if (showWrongMessage) ...<Widget>[
+                const Text(
+                  '答案不对，已换一题',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFFFF6B78),
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ],
+              Text(
+                challenge.prompt,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 36,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 28),
+              FocusTraversalGroup(
+                child: Wrap(
+                  spacing: 16,
+                  runSpacing: 12,
+                  alignment: WrapAlignment.center,
+                  children: <Widget>[
+                    for (int index = 0;
+                        index < challenge.options.length;
+                        index++)
+                      TvFocusableButton(
+                        autofocus: index == 0,
+                        label: '${challenge.options[index]}',
+                        onPressed: () =>
+                            Navigator.of(context).pop(challenge.options[index]),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: <Widget>[
+          TvFocusableButton(
+            icon: Icons.close,
+            label: '取消',
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ],
+      );
+    },
+  );
 }
 
 Future<String?> showTvPinDialog(

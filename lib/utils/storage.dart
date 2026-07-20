@@ -128,6 +128,7 @@ class SettingBoxKey {
       tvAntiAddictionDailyDate = 'tvAntiAddictionDailyDate',
       tvAntiAddictionRestUntil = 'tvAntiAddictionRestUntil',
       tvAntiAddictionPin = 'tvAntiAddictionPin',
+      tvAntiAddictionUnlockMode = 'tvAntiAddictionUnlockMode',
       replySortType = 'replySortType',
       defaultDynamicType = 'defaultDynamicType',
       enableHotKey = 'enableHotKey',
