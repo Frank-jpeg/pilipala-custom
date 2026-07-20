@@ -131,6 +131,13 @@ class TvVideoController extends GetxController {
     );
   }
 
+  void playCid(int cid) {
+    selectCid(cid);
+    if (selectedCid.value == cid) {
+      playSelected();
+    }
+  }
+
   Future<void> toggleWatchLater() async {
     if (!isLogin) {
       SmartDialog.showToast('请先登录');

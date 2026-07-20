@@ -39,6 +39,8 @@ class TvPlayerController extends GetxController {
   int _startSeconds = 0;
   String _source = '';
   bool _isRecommendSource = false;
+  List<Part> _detailPages = <Part>[];
+  int _detailPageIndex = -1;
 
   String get bvid => _bvid;
   int get cid => _cid;
@@ -48,6 +50,7 @@ class TvPlayerController extends GetxController {
   String get source => _source;
   bool get isRecommendSource => _isRecommendSource;
   bool get isHomeSource => _source == 'home';
+  bool get isDetailSource => _source == 'detail';
 
   Worker? _positionWorker;
   Worker? _statusWorker;
@@ -89,7 +92,31 @@ class TvPlayerController extends GetxController {
       await playRecommendIndex(recommendIndex, startSeconds: startSeconds);
       return;
     }
+    if (isDetailSource) {
+      await _loadDetailPlaylist();
+    }
     await playByParams(bvid: bvid, cid: cid, startSeconds: startSeconds);
+  }
+
+  Future<void> _loadDetailPlaylist() async {
+    try {
+      final dynamic res = await VideoHttp.videoIntro(bvid: bvid);
+      if (res['status'] != true || res['data'] is! VideoDetailData) {
+        return;
+      }
+      final VideoDetailData detail = res['data'] as VideoDetailData;
+      _aid = detail.aid ?? _aid;
+      _detailPages = (detail.pages ?? <Part>[])
+          .where((Part part) => (part.cid ?? 0) > 0)
+          .toList(growable: false);
+      _syncDetailPageIndex(cid);
+    } catch (_) {
+      // The selected episode can still play even if playlist loading fails.
+    }
+  }
+
+  void _syncDetailPageIndex(int cid) {
+    _detailPageIndex = _detailPages.indexWhere((Part part) => part.cid == cid);
   }
 
   Future<void> playByParams({
@@ -120,6 +147,9 @@ class TvPlayerController extends GetxController {
       _bvid = bvid;
       _cid = resolvedCid;
       currentCid.value = resolvedCid;
+      if (isDetailSource) {
+        _syncDetailPageIndex(resolvedCid);
+      }
       player.isOpenDanmu.value = GStrorage.setting.get(
         SettingBoxKey.enableShowDanmaku,
         defaultValue: true,
@@ -253,6 +283,25 @@ class TvPlayerController extends GetxController {
     home.selectPrevious(schedule: false);
     _startSeconds = 0;
     await playRecommendIndex(home.selectedIndex.value);
+  }
+
+  Future<void> playNextDetailPage() async {
+    if (!isDetailSource ||
+        _detailPageIndex < 0 ||
+        _detailPageIndex >= _detailPages.length - 1) {
+      return;
+    }
+    final Part next = _detailPages[_detailPageIndex + 1];
+    final int nextCid = next.cid ?? 0;
+    if (nextCid <= 0) {
+      return;
+    }
+    _startSeconds = 0;
+    await playByParams(
+      bvid: bvid,
+      cid: nextCid,
+      title: next.pagePart,
+    );
   }
 
   Future<void> togglePlay() async {
@@ -546,19 +595,23 @@ class TvPlayerController extends GetxController {
   }
 
   void _watchAutoNext() {
-    if (!isRecommendSource) {
+    if (!isRecommendSource && !isDetailSource) {
       return;
     }
     _positionWorker = ever<Duration>(player.position, (Duration position) {
       final Duration duration = player.duration.value;
+      final bool invalidDuration =
+          isRecommendSource ? duration.inSeconds < 10 : duration.inSeconds <= 0;
       if (_switchingVideo ||
           loading.value ||
-          duration.inSeconds < 10 ||
+          invalidDuration ||
           position.inSeconds < duration.inSeconds - 2) {
         return;
       }
       _switchingVideo = true;
-      playNextRecommend().whenComplete(() {
+      final Future<void> next =
+          isRecommendSource ? playNextRecommend() : playNextDetailPage();
+      next.whenComplete(() {
         _switchingVideo = false;
       });
     });

@@ -10,6 +10,7 @@ class TvFocusableButton extends StatefulWidget {
     this.autofocus = false,
     this.focusNode,
     this.onFocused,
+    this.selected = false,
   });
 
   final String label;
@@ -18,6 +19,7 @@ class TvFocusableButton extends StatefulWidget {
   final bool autofocus;
   final FocusNode? focusNode;
   final ValueChanged<bool>? onFocused;
+  final bool selected;
 
   @override
   State<TvFocusableButton> createState() => _TvFocusableButtonState();
@@ -51,11 +53,19 @@ class _TvFocusableButtonState extends State<TvFocusableButton> {
         duration: const Duration(milliseconds: 120),
         transform: Matrix4.identity()..scale(_focused ? 1.04 : 1.0),
         decoration: BoxDecoration(
-          color: _focused ? colorScheme.primary : colorScheme.surface,
+          color: _focused
+              ? colorScheme.primary
+              : widget.selected
+                  ? colorScheme.primary.withOpacity(0.2)
+                  : colorScheme.surface,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: _focused ? Colors.white : Colors.white12,
-            width: _focused ? 2 : 1,
+            color: _focused
+                ? Colors.white
+                : widget.selected
+                    ? colorScheme.primary
+                    : Colors.white12,
+            width: _focused || widget.selected ? 2 : 1,
           ),
           boxShadow: _focused
               ? <BoxShadow>[
@@ -79,14 +89,22 @@ class _TvFocusableButtonState extends State<TvFocusableButton> {
                   Icon(
                     widget.icon,
                     size: 20,
-                    color: _focused ? Colors.white : colorScheme.onSurface,
+                    color: _focused
+                        ? Colors.white
+                        : widget.selected
+                            ? colorScheme.primary
+                            : colorScheme.onSurface,
                   ),
                   const SizedBox(width: 10),
                 ],
                 Text(
                   widget.label,
                   style: TextStyle(
-                    color: _focused ? Colors.white : colorScheme.onSurface,
+                    color: _focused
+                        ? Colors.white
+                        : widget.selected
+                            ? colorScheme.primary
+                            : colorScheme.onSurface,
                     fontWeight: FontWeight.w600,
                   ),
                 ),

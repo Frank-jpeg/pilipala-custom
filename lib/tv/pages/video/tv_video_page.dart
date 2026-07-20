@@ -158,9 +158,14 @@ class _TvVideoPageState extends State<TvVideoPage> {
                       spacing: 12,
                       runSpacing: 12,
                       children: pages.map((part) {
+                        final int cid = part.cid ?? 0;
+                        final bool selected =
+                            controller.selectedCid.value == cid;
                         return TvFocusableButton(
                           label: 'P${part.page} ${part.pagePart ?? ''}',
-                          onPressed: () => controller.selectCid(part.cid ?? 0),
+                          icon: selected ? Icons.play_arrow_rounded : null,
+                          selected: selected,
+                          onPressed: () => controller.playCid(cid),
                         );
                       }).toList(),
                     ),
