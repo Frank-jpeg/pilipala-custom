@@ -34,6 +34,10 @@ class TvSettingsPage extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 40),
+              _WatchTimeProgressPanel(controller: controller),
+              const SizedBox(height: 18),
+              _VersionInfoRow(version: controller.appVersionLabel.value),
+              const SizedBox(height: 18),
               _SettingRow(
                 title: '推荐页自动预览/连播',
                 subtitle: controller.recommendPreviewAutoplayEnabled.value
@@ -262,8 +266,6 @@ class TvSettingsPage extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 18),
-              _WatchTimeProgressPanel(controller: controller),
-              const SizedBox(height: 18),
               _SettingRow(
                 title: '家长 PIN',
                 subtitle: '用于关闭/修改防沉迷，以及锁页临时解锁',
@@ -279,6 +281,52 @@ class TvSettingsPage extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _VersionInfoRow extends StatelessWidget {
+  const _VersionInfoRow({required this.version});
+
+  final String version;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+      decoration: BoxDecoration(
+        color: const Color(0xFF121A2B),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: Row(
+        children: <Widget>[
+          const Icon(
+            Icons.info_outline_rounded,
+            color: Colors.white70,
+            size: 22,
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              '当前版本',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 19,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Text(
+            version,
+            style: const TextStyle(
+              color: Color(0xFFFF7BAC),
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:pilipala/tv/controllers/tv_anti_addiction_controller.dart';
 import 'package:pilipala/tv/controllers/tv_home_controller.dart';
 import 'package:pilipala/tv/pages/anti_addiction/tv_anti_addiction_lock_page.dart';
@@ -17,11 +18,14 @@ class TvSettingsController extends GetxController {
   final RxDouble danmakuOpacity = 1.0.obs;
   final RxDouble danmakuStrokeWidth = 1.5.obs;
   final RxList<dynamic> danmakuBlockTypes = <dynamic>[].obs;
+  final RxString appVersionLabel = '读取中'.obs;
   late final TvAntiAddictionController antiAddiction;
 
   static const int minDelaySeconds = 5;
   static const int maxDelaySeconds = 60;
   static const int delayStepSeconds = 5;
+  static const int minSessionLimitMinutes = 1;
+  static const int maxSessionLimitMinutes = 720;
   static const List<double> danmakuAreaOptions = <double>[0.25, 0.5, 0.75, 1.0];
   static const List<double> danmakuDurationOptions = <double>[
     2,
@@ -109,6 +113,16 @@ class TvSettingsController extends GetxController {
       ) as List,
     );
     _syncDanmakuGlobalCache();
+    _loadAppVersion();
+  }
+
+  Future<void> _loadAppVersion() async {
+    try {
+      final PackageInfo info = await PackageInfo.fromPlatform();
+      appVersionLabel.value = '${info.version} (${info.buildNumber})';
+    } catch (_) {
+      appVersionLabel.value = '未知';
+    }
   }
 
   Future<void> toggleRecommendPreviewAutoplay() async {
@@ -306,12 +320,30 @@ class TvSettingsController extends GetxController {
     if (!await _verifyPinIfNeeded(context)) {
       return;
     }
-    final int? value = await _showIntOptionDialog(
+    final int current = antiAddiction.sessionLimitMinutes.value;
+    final bool usesPreset = sessionOptions.contains(current);
+    final int? selected = await _showIntOptionDialog(
       title: '单次观看时长',
-      options: sessionOptions,
-      current: antiAddiction.sessionLimitMinutes.value,
-      labelBuilder: (int v) => '$v 分钟',
+      options: <int>[...sessionOptions, -1],
+      current: usesPreset ? current : -1,
+      labelBuilder: (int v) => v == -1
+          ? usesPreset
+              ? '自定义'
+              : '自定义（当前 $current 分钟）'
+          : '$v 分钟',
     );
+    if (selected == null) {
+      return;
+    }
+    final int? value = selected == -1
+        ? await _showNumberInputDialog(
+            title: '自定义单次观看时长',
+            initialValue: current,
+            minValue: minSessionLimitMinutes,
+            maxValue: maxSessionLimitMinutes,
+            unit: '分钟',
+          )
+        : selected;
     if (value == null) {
       return;
     }
@@ -389,6 +421,27 @@ class TvSettingsController extends GetxController {
       options: options,
       current: current,
       labelBuilder: labelBuilder,
+    );
+  }
+
+  Future<int?> _showNumberInputDialog({
+    required String title,
+    required int initialValue,
+    required int minValue,
+    required int maxValue,
+    required String unit,
+  }) {
+    final BuildContext? context = Get.context;
+    if (context == null) {
+      return Future<int?>.value();
+    }
+    return showTvNumberInputDialog(
+      context,
+      title: title,
+      initialValue: initialValue,
+      minValue: minValue,
+      maxValue: maxValue,
+      unit: unit,
     );
   }
 

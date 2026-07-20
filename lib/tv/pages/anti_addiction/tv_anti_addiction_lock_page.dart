@@ -223,6 +223,208 @@ Future<String?> showTvPinDialog(
   );
 }
 
+Future<int?> showTvNumberInputDialog(
+  BuildContext context, {
+  required String title,
+  required int initialValue,
+  required int minValue,
+  required int maxValue,
+  required String unit,
+}) {
+  return showDialog<int>(
+    context: context,
+    barrierDismissible: false,
+    builder: (BuildContext context) {
+      return _TvNumberInputDialog(
+        title: title,
+        initialValue: initialValue,
+        minValue: minValue,
+        maxValue: maxValue,
+        unit: unit,
+      );
+    },
+  );
+}
+
+class _TvNumberInputDialog extends StatefulWidget {
+  const _TvNumberInputDialog({
+    required this.title,
+    required this.initialValue,
+    required this.minValue,
+    required this.maxValue,
+    required this.unit,
+  });
+
+  final String title;
+  final int initialValue;
+  final int minValue;
+  final int maxValue;
+  final String unit;
+
+  @override
+  State<_TvNumberInputDialog> createState() => _TvNumberInputDialogState();
+}
+
+class _TvNumberInputDialogState extends State<_TvNumberInputDialog> {
+  late String _digits;
+  bool _replaceOnNextDigit = true;
+  String? _error;
+
+  int get _maxDigits => widget.maxValue.toString().length;
+
+  @override
+  void initState() {
+    super.initState();
+    _digits = widget.initialValue.toString();
+  }
+
+  void _appendDigit(String digit) {
+    final String next = _replaceOnNextDigit ? digit : '$_digits$digit';
+    if (next.length > _maxDigits) {
+      return;
+    }
+    setState(() {
+      _digits = next;
+      _replaceOnNextDigit = false;
+      _error = null;
+    });
+  }
+
+  void _deleteDigit() {
+    if (_digits.isEmpty) {
+      return;
+    }
+    setState(() {
+      _digits = _digits.substring(0, _digits.length - 1);
+      _replaceOnNextDigit = false;
+      _error = null;
+    });
+  }
+
+  void _clear() {
+    setState(() {
+      _digits = '';
+      _replaceOnNextDigit = false;
+      _error = null;
+    });
+  }
+
+  void _submit() {
+    final int? value = int.tryParse(_digits);
+    if (value == null || value < widget.minValue || value > widget.maxValue) {
+      setState(() {
+        _error = '请输入 ${widget.minValue}–${widget.maxValue} ${widget.unit}';
+      });
+      return;
+    }
+    Navigator.of(context).pop(value);
+  }
+
+  KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) {
+      return KeyEventResult.ignored;
+    }
+    final LogicalKeyboardKey key = event.logicalKey;
+    final String label = key.keyLabel;
+    if (label.length == 1 && RegExp(r'\d').hasMatch(label)) {
+      _appendDigit(label);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.backspace ||
+        key == LogicalKeyboardKey.delete) {
+      _deleteDigit();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.escape ||
+        key == LogicalKeyboardKey.goBack ||
+        key == LogicalKeyboardKey.browserBack) {
+      Navigator.of(context).pop();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: const Color(0xFF121A2B),
+      title: Text(widget.title),
+      content: Focus(
+        onKeyEvent: _handleKey,
+        child: SizedBox(
+          width: 640,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Text(
+                        '${widget.minValue}–${widget.maxValue} ${widget.unit}',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 17,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        _digits.isEmpty ? '0' : _digits,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 46,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _error ?? '方向键选择右侧数字，OK 输入。',
+                        style: TextStyle(
+                          color: _error == null
+                              ? Colors.white54
+                              : const Color(0xFFFF6B78),
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 28),
+              _PinNumberPad(
+                onDigit: _appendDigit,
+                onDelete: _deleteDigit,
+                onClear: _clear,
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: <Widget>[
+        TvFocusableButton(
+          icon: Icons.close,
+          label: '取消',
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        TvFocusableButton(
+          icon: Icons.check,
+          label: '保存',
+          onPressed: _submit,
+        ),
+      ],
+    );
+  }
+}
+
 class _TvPinDialog extends StatefulWidget {
   const _TvPinDialog({
     required this.title,
