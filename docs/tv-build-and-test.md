@@ -40,6 +40,7 @@ The TV app uses a compact two-row top navigation above the shared content stage:
 - the TV bottom hint panel appears on entry and remote actions, auto-hides after 3 seconds, and does not coexist with the shared mobile player controls; the optional 3 px thin progress bar remains independent
 - `设置` can enable/disable idle auto-fullscreen and change the delay from 5 to 60 seconds
 - the top of `设置` shows the installed app version plus session and daily viewing progress; the session limit accepts custom values from 1 to 720 minutes
+- anti-addiction date rules are opt-in: with `按工作日/休息日分配` off, the original unified session/daily limits remain active; with it on, Monday-Friday use workday limits, Saturday/Sunday and parent-defined custom rest ranges use rest-day limits
 - TV anti-addiction counts only while recommendation preview or full-screen video is actually playing; pause, loading, and app background time do not count
 - the lock page shows a circular countdown and supports parent PIN or easy/medium/hard math unlock; math answers are entered with a `0–99` numeric keypad, allow at most three wrong answers per lock, and always retain PIN as a fallback
 - successful PIN or math validation opens the shared temporary extension choice for `10 / 15 / 20` minutes; cancelling keeps playback locked
@@ -181,13 +182,15 @@ Use the latest `tv` branch artifact from GitHub Actions or the local arm64 relea
 20. Enter `媒体库` and confirm the page is usable in both logged-in and not-logged-in states. After TV phone login, verify `历史记录` / `收藏内容` / `稍后再看` all show the same access-key data path as the home channels.
 21. Enter `设置` and confirm the top panel shows the installed version plus both session and daily viewing progress, then confirm idle auto-fullscreen can be toggled and its delay adjusted.
 22. Set a parent PIN, enable `TV 防沉迷`, and confirm the default values are 30 minutes watch / 20 minutes rest / daily limit off. Test custom single-session values at the supported `1–720` minute bounds.
-23. Confirm time advances only during actually playing recommendation preview or full-screen playback, and does not advance while paused, loading, or in the background.
-24. Reduce the single-session limit, confirm playback opens the lock page, the circular countdown decreases, and Back cannot bypass it.
-25. Test unlock method selection and persistence for parent PIN plus all three math difficulties. In each math mode, enter the answer with the numeric keypad and confirm PIN remains available as a fallback.
-26. Confirm a wrong math answer shows the remaining attempts, the third wrong answer disables math for that lock, and waiting or PIN are still usable.
-27. Confirm correct math or PIN validation opens the `10 / 15 / 20` minute extension choice; choosing one resumes playback with only that temporary allowance, while cancelling stays locked.
-28. From a content list, press Back and confirm focus returns to the current home tab. Press Back again from top navigation, confirm the exit dialog initially focuses `退出`, then press OK once to exit without an extra left/right focus move.
-29. Confirm real playback has video and audio.
-30. Test account-only flows after login if needed.
+23. With `按工作日/休息日分配` off, confirm the original unified single-session and daily limits remain visible and active.
+24. Turn `按工作日/休息日分配` on, set different workday/rest-day limits, and confirm the settings page shows the current day type. Add a custom rest range with `YYYYMMDD` dates, then confirm that range is counted as a rest day; delete or clear it and confirm the override is removed.
+25. Confirm time advances only during actually playing recommendation preview or full-screen playback, and does not advance while paused, loading, or in the background.
+26. Reduce the single-session limit, confirm playback opens the lock page, the circular countdown decreases, and Back cannot bypass it.
+27. Test unlock method selection and persistence for parent PIN plus all three math difficulties. In each math mode, enter the answer with the numeric keypad and confirm PIN remains available as a fallback.
+28. Confirm a wrong math answer shows the remaining attempts, the third wrong answer disables math for that lock, and waiting or PIN are still usable.
+29. Confirm correct math or PIN validation opens the `10 / 15 / 20` minute extension choice; choosing one resumes playback with only that temporary allowance, while cancelling stays locked.
+30. From a content list, press Back and confirm focus returns to the current home tab. Press Back again from top navigation, confirm the exit dialog initially focuses `退出`, then press OK once to exit without an extra left/right focus move.
+31. Confirm real playback has video and audio.
+32. Test account-only flows after login if needed.
 
 If real-device playback is black, treat it as a player/play-url compatibility bug and inspect `TvPlayerController` plus the shared `PlPlayerController`/`media_kit` integration first.
