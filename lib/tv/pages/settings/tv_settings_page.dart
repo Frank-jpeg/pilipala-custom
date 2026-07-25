@@ -228,8 +228,7 @@ class TvSettingsPage extends StatelessWidget {
               const SizedBox(height: 18),
               _SettingRow(
                 title: '按工作日/休息日分配',
-                subtitle:
-                    '休息日包含周末和法定假日，调休上班日按工作日；今日按${controller.currentDayTypeLabel}计算',
+                subtitle: '关闭时沿用原来的统一规则；开启后，周末和自定义假期按休息日计算',
                 value: controller.calendarLimitStatus,
                 actions: <Widget>[
                   TvFocusableButton(
@@ -247,6 +246,31 @@ class TvSettingsPage extends StatelessWidget {
               if (controller
                   .antiAddiction.calendarLimitEnabled.value) ...<Widget>[
                 _SettingRow(
+                  title: '自定义假期',
+                  subtitle: controller.customRestRangesSummary,
+                  value: controller.customRestRangesLabel,
+                  actions: <Widget>[
+                    TvFocusableButton(
+                      label: '新增',
+                      icon: Icons.add,
+                      onPressed: () => controller.addCustomRestRange(context),
+                    ),
+                    TvFocusableButton(
+                      label: '删最近',
+                      icon: Icons.remove,
+                      onPressed: () =>
+                          controller.removeLastCustomRestRange(context),
+                    ),
+                    TvFocusableButton(
+                      label: '清空',
+                      icon: Icons.delete_outline,
+                      onPressed: () =>
+                          controller.clearCustomRestRanges(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                _SettingRow(
                   title: '工作日单次时长',
                   subtitle: '工作日到点后进入强制休息锁页',
                   value:
@@ -263,7 +287,7 @@ class TvSettingsPage extends StatelessWidget {
                 const SizedBox(height: 18),
                 _SettingRow(
                   title: '休息日单次时长',
-                  subtitle: '周末和法定假日使用，可设置得更长',
+                  subtitle: '周末和自定义假期使用，可设置得更长',
                   value:
                       '${controller.antiAddiction.restDaySessionLimitMinutes.value} 分钟',
                   actions: <Widget>[
@@ -324,7 +348,7 @@ class TvSettingsPage extends StatelessWidget {
                 const SizedBox(height: 18),
                 _SettingRow(
                   title: '休息日每日总时长',
-                  subtitle: '周末和法定假日可设置更长的每日额度',
+                  subtitle: '周末和自定义假期可设置更长的每日额度',
                   value: controller.limitLabel(
                     controller.antiAddiction.restDayDailyLimitMinutes.value,
                   ),
@@ -477,7 +501,9 @@ class _WatchTimeProgressPanel extends StatelessWidget {
               ),
               Text(
                 enabled
-                    ? '防沉迷已开启 · 今日${controller.currentDayTypeLabel}'
+                    ? controller.antiAddiction.calendarLimitEnabled.value
+                        ? '防沉迷已开启 · 今日${controller.currentDayTypeLabel}'
+                        : '防沉迷已开启'
                     : '防沉迷未开启',
                 style: TextStyle(
                   color: enabled ? _activeColor : Colors.white54,

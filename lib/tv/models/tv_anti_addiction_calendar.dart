@@ -15,16 +15,56 @@ extension TvAntiAddictionDayTypeLabel on TvAntiAddictionDayType {
   }
 }
 
+class TvAntiAddictionCustomRestRange {
+  const TvAntiAddictionCustomRestRange({
+    required this.startKey,
+    required this.endKey,
+  });
+
+  final String startKey;
+  final String endKey;
+
+  bool contains(DateTime date) {
+    final String key = TvAntiAddictionCalendar.dateKey(date);
+    return key.compareTo(startKey) >= 0 && key.compareTo(endKey) <= 0;
+  }
+
+  Map<String, String> toJson() => <String, String>{
+        'start': startKey,
+        'end': endKey,
+      };
+
+  static TvAntiAddictionCustomRestRange? fromJson(dynamic value) {
+    if (value is! Map) {
+      return null;
+    }
+    final String? start = value['start']?.toString();
+    final String? end = value['end']?.toString();
+    if (start == null || end == null) {
+      return null;
+    }
+    if (!TvAntiAddictionCalendar.isDateKey(start) ||
+        !TvAntiAddictionCalendar.isDateKey(end)) {
+      return null;
+    }
+    return TvAntiAddictionCustomRestRange(
+      startKey: start.compareTo(end) <= 0 ? start : end,
+      endKey: start.compareTo(end) <= 0 ? end : start,
+    );
+  }
+}
+
 class TvAntiAddictionCalendar {
   const TvAntiAddictionCalendar._();
 
-  static TvAntiAddictionDayType dayTypeOf(DateTime date) {
-    final String key = dateKey(date);
-    if (_workdayOverrides2026.contains(key)) {
-      return TvAntiAddictionDayType.workday;
-    }
-    if (_restDayOverrides2026.contains(key)) {
-      return TvAntiAddictionDayType.restDay;
+  static TvAntiAddictionDayType dayTypeOf(
+    DateTime date, {
+    List<TvAntiAddictionCustomRestRange> customRestRanges = const [],
+  }) {
+    for (final TvAntiAddictionCustomRestRange range in customRestRanges) {
+      if (range.contains(date)) {
+        return TvAntiAddictionDayType.restDay;
+      }
     }
     if (date.weekday == DateTime.saturday || date.weekday == DateTime.sunday) {
       return TvAntiAddictionDayType.restDay;
@@ -37,49 +77,30 @@ class TvAntiAddictionCalendar {
       '${value.month.toString().padLeft(2, '0')}-'
       '${value.day.toString().padLeft(2, '0')}';
 
-  // 2026 中国法定节假日和调休上班日。
-  static const Set<String> _restDayOverrides2026 = <String>{
-    '2026-01-01',
-    '2026-01-02',
-    '2026-01-03',
-    '2026-02-15',
-    '2026-02-16',
-    '2026-02-17',
-    '2026-02-18',
-    '2026-02-19',
-    '2026-02-20',
-    '2026-02-21',
-    '2026-02-22',
-    '2026-02-23',
-    '2026-04-04',
-    '2026-04-05',
-    '2026-04-06',
-    '2026-05-01',
-    '2026-05-02',
-    '2026-05-03',
-    '2026-05-04',
-    '2026-05-05',
-    '2026-06-19',
-    '2026-06-20',
-    '2026-06-21',
-    '2026-09-25',
-    '2026-09-26',
-    '2026-09-27',
-    '2026-10-01',
-    '2026-10-02',
-    '2026-10-03',
-    '2026-10-04',
-    '2026-10-05',
-    '2026-10-06',
-    '2026-10-07',
-  };
+  static bool isDateKey(String value) {
+    if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(value)) {
+      return false;
+    }
+    final List<int?> parts =
+        value.split('-').map((String item) => int.tryParse(item)).toList();
+    if (parts.any((int? part) => part == null)) {
+      return false;
+    }
+    final int year = parts[0]!;
+    final int month = parts[1]!;
+    final int day = parts[2]!;
+    final DateTime date = DateTime(year, month, day);
+    return date.year == year && date.month == month && date.day == day;
+  }
 
-  static const Set<String> _workdayOverrides2026 = <String>{
-    '2026-01-04',
-    '2026-02-14',
-    '2026-02-28',
-    '2026-05-09',
-    '2026-09-20',
-    '2026-10-10',
-  };
+  static String dateKeyFromNumber(int value) {
+    final String raw = value.toString().padLeft(8, '0');
+    final String key = '${raw.substring(0, 4)}-'
+        '${raw.substring(4, 6)}-'
+        '${raw.substring(6, 8)}';
+    if (!isDateKey(key)) {
+      return '';
+    }
+    return key;
+  }
 }

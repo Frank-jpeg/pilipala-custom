@@ -267,6 +267,22 @@ class TvSettingsController extends GetxController {
 
   String limitLabel(int value) => value == 0 ? '已关闭' : '$value 分钟';
 
+  String get customRestRangesLabel {
+    if (antiAddiction.customRestRanges.isEmpty) {
+      return '未设置';
+    }
+    return '${antiAddiction.customRestRanges.length} 段';
+  }
+
+  String get customRestRangesSummary {
+    if (antiAddiction.customRestRanges.isEmpty) {
+      return '可把寒假、暑假等日期段按休息日规则计算';
+    }
+    final TvAntiAddictionCustomRestRange latest =
+        antiAddiction.customRestRanges.last;
+    return '最近一段 ${latest.startKey} 至 ${latest.endKey}，共 ${antiAddiction.customRestRanges.length} 段';
+  }
+
   String get pinStatus => antiAddiction.hasPin ? '已设置' : '未设置';
 
   String get unlockModeLabel => antiAddiction.unlockMode.value.label;
@@ -478,6 +494,69 @@ class TvSettingsController extends GetxController {
     await save(value);
   }
 
+  Future<void> addCustomRestRange(BuildContext context) async {
+    if (!await _verifyPinIfNeeded(context)) {
+      return;
+    }
+    final int? startValue = await _showDateInputDialog(
+      title: '自定义假期开始日期',
+      initialDate: DateTime.now(),
+    );
+    if (startValue == null) {
+      return;
+    }
+    final String startKey = TvAntiAddictionCalendar.dateKeyFromNumber(
+      startValue,
+    );
+    if (startKey.isEmpty) {
+      Get.snackbar('日期无效', '请输入有效日期，例如 20260701');
+      return;
+    }
+    final int? endValue = await _showDateInputDialog(
+      title: '自定义假期结束日期',
+      initialDate: _dateFromKey(startKey),
+    );
+    if (endValue == null) {
+      return;
+    }
+    final String endKey = TvAntiAddictionCalendar.dateKeyFromNumber(endValue);
+    if (endKey.isEmpty) {
+      Get.snackbar('日期无效', '请输入有效日期，例如 20260831');
+      return;
+    }
+    final TvAntiAddictionCustomRestRange range =
+        TvAntiAddictionCustomRestRange.fromJson(
+      <String, String>{'start': startKey, 'end': endKey},
+    )!;
+    await antiAddiction.setCustomRestRanges(
+      <TvAntiAddictionCustomRestRange>[
+        ...antiAddiction.customRestRanges,
+        range,
+      ],
+    );
+  }
+
+  Future<void> removeLastCustomRestRange(BuildContext context) async {
+    if (!await _verifyPinIfNeeded(context)) {
+      return;
+    }
+    if (antiAddiction.customRestRanges.isEmpty) {
+      return;
+    }
+    await antiAddiction.setCustomRestRanges(
+      antiAddiction.customRestRanges
+          .take(antiAddiction.customRestRanges.length - 1)
+          .toList(),
+    );
+  }
+
+  Future<void> clearCustomRestRanges(BuildContext context) async {
+    if (!await _verifyPinIfNeeded(context)) {
+      return;
+    }
+    await antiAddiction.setCustomRestRanges(<TvAntiAddictionCustomRestRange>[]);
+  }
+
   Future<void> selectUnlockMode(BuildContext context) async {
     if (!antiAddiction.hasPin) {
       final bool created = await setOrChangePin(context);
@@ -557,6 +636,7 @@ class TvSettingsController extends GetxController {
     required int minValue,
     required int maxValue,
     required String unit,
+    String? prompt,
   }) {
     final BuildContext? context = Get.context;
     if (context == null) {
@@ -569,6 +649,23 @@ class TvSettingsController extends GetxController {
       minValue: minValue,
       maxValue: maxValue,
       unit: unit,
+      prompt: prompt,
+    );
+  }
+
+  Future<int?> _showDateInputDialog({
+    required String title,
+    required DateTime initialDate,
+  }) {
+    return _showNumberInputDialog(
+      title: title,
+      initialValue: int.parse(
+        TvAntiAddictionCalendar.dateKey(initialDate).replaceAll('-', ''),
+      ),
+      minValue: 20000101,
+      maxValue: 20991231,
+      unit: '',
+      prompt: '格式：YYYYMMDD',
     );
   }
 
@@ -633,6 +730,12 @@ class TvSettingsController extends GetxController {
       }
     }
     return bestIndex;
+  }
+
+  DateTime _dateFromKey(String key) {
+    final List<int> parts =
+        key.split('-').map((String item) => int.parse(item)).toList();
+    return DateTime(parts[0], parts[1], parts[2]);
   }
 
   @override

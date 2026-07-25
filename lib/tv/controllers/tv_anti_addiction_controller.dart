@@ -28,6 +28,8 @@ class TvAntiAddictionController extends GetxController
       defaultRestDaySessionLimitMinutes.obs;
   final RxInt workdayDailyLimitMinutes = 0.obs;
   final RxInt restDayDailyLimitMinutes = 0.obs;
+  final RxList<TvAntiAddictionCustomRestRange> customRestRanges =
+      <TvAntiAddictionCustomRestRange>[].obs;
   final Rx<TvAntiAddictionDayType> currentDayType =
       TvAntiAddictionCalendar.dayTypeOf(DateTime.now()).obs;
   final RxInt dailyUsedSeconds = 0.obs;
@@ -134,7 +136,6 @@ class TvAntiAddictionController extends GetxController
   }
 
   void load() {
-    _rollDailyIfNeeded();
     enabled.value = GStrorage.setting.get(
       SettingBoxKey.tvAntiAddictionEnabled,
       defaultValue: false,
@@ -176,10 +177,12 @@ class TvAntiAddictionController extends GetxController
           ? 0
           : _maxInt(dailyLimitMinutes.value, defaultRestDayDailyLimitMinutes),
     ) as int;
+    customRestRanges.value = _readCustomRestRanges();
     dailyUsedSeconds.value = GStrorage.setting.get(
       SettingBoxKey.tvAntiAddictionDailyUsedSeconds,
       defaultValue: 0,
     ) as int;
+    _rollDailyIfNeeded();
     unlockMode.value = parseTvAntiAddictionUnlockMode(
       GStrorage.setting.get(
         SettingBoxKey.tvAntiAddictionUnlockMode,
@@ -279,6 +282,23 @@ class TvAntiAddictionController extends GetxController
       SettingBoxKey.tvAntiAddictionRestDayDailyLimitMinutes,
       value,
     );
+  }
+
+  Future<void> setCustomRestRanges(
+    List<TvAntiAddictionCustomRestRange> ranges,
+  ) async {
+    final TvAntiAddictionDayType oldDayType = currentDayType.value;
+    customRestRanges.value = _sortCustomRestRanges(ranges);
+    await GStrorage.setting.put(
+      SettingBoxKey.tvAntiAddictionCustomRestRanges,
+      customRestRanges
+          .map((TvAntiAddictionCustomRestRange range) => range.toJson())
+          .toList(),
+    );
+    _refreshCurrentDayType();
+    if (calendarLimitEnabled.value && oldDayType != currentDayType.value) {
+      resetSession();
+    }
   }
 
   Future<void> setPin(String value) async {
@@ -445,7 +465,7 @@ class TvAntiAddictionController extends GetxController
 
   void _rollDailyIfNeeded() {
     final DateTime now = DateTime.now();
-    currentDayType.value = TvAntiAddictionCalendar.dayTypeOf(now);
+    _refreshCurrentDayType(now: now);
     final String today = TvAntiAddictionCalendar.dateKey(now);
     final String stored = GStrorage.setting.get(
       SettingBoxKey.tvAntiAddictionDailyDate,
@@ -460,6 +480,13 @@ class TvAntiAddictionController extends GetxController
     if (lockReason.value == TvAntiAddictionLockReason.dailyLimit) {
       unlock(resume: false);
     }
+  }
+
+  void _refreshCurrentDayType({DateTime? now}) {
+    currentDayType.value = TvAntiAddictionCalendar.dayTypeOf(
+      now ?? DateTime.now(),
+      customRestRanges: customRestRanges,
+    );
   }
 
   @override
@@ -503,3 +530,35 @@ class TvAntiAddictionController extends GetxController
 }
 
 int _maxInt(int a, int b) => a > b ? a : b;
+
+List<TvAntiAddictionCustomRestRange> _readCustomRestRanges() {
+  final dynamic stored = GStrorage.setting.get(
+    SettingBoxKey.tvAntiAddictionCustomRestRanges,
+    defaultValue: <dynamic>[],
+  );
+  if (stored is! List) {
+    return <TvAntiAddictionCustomRestRange>[];
+  }
+  final List<TvAntiAddictionCustomRestRange> ranges =
+      <TvAntiAddictionCustomRestRange>[];
+  for (final dynamic value in stored) {
+    final TvAntiAddictionCustomRestRange? range =
+        TvAntiAddictionCustomRestRange.fromJson(value);
+    if (range != null) {
+      ranges.add(range);
+    }
+  }
+  return _sortCustomRestRanges(ranges);
+}
+
+List<TvAntiAddictionCustomRestRange> _sortCustomRestRanges(
+  List<TvAntiAddictionCustomRestRange> ranges,
+) {
+  return <TvAntiAddictionCustomRestRange>[...ranges]..sort(
+      (
+        TvAntiAddictionCustomRestRange a,
+        TvAntiAddictionCustomRestRange b,
+      ) =>
+          a.startKey.compareTo(b.startKey),
+    );
+}

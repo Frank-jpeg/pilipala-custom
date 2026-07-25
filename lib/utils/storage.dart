@@ -134,6 +134,7 @@ class SettingBoxKey {
           'tvAntiAddictionWorkdayDailyLimitMinutes',
       tvAntiAddictionRestDayDailyLimitMinutes =
           'tvAntiAddictionRestDayDailyLimitMinutes',
+      tvAntiAddictionCustomRestRanges = 'tvAntiAddictionCustomRestRanges',
       tvAntiAddictionDailyUsedSeconds = 'tvAntiAddictionDailyUsedSeconds',
       tvAntiAddictionDailyDate = 'tvAntiAddictionDailyDate',
       tvAntiAddictionRestUntil = 'tvAntiAddictionRestUntil',
