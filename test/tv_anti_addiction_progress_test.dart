@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pilipala/tv/controllers/tv_anti_addiction_controller.dart';
+import 'package:pilipala/tv/models/tv_anti_addiction_calendar.dart';
 import 'package:pilipala/tv/pages/anti_addiction/tv_anti_addiction_lock_page.dart';
 
 void main() {
@@ -72,6 +73,25 @@ void main() {
 
       expect(controller.dailyRemainingSeconds, 0);
       expect(controller.dailyRemainingProgress, 0);
+    });
+
+    test('calendar mode uses the current day type limits', () {
+      controller.calendarLimitEnabled.value = true;
+      controller.workdaySessionLimitMinutes.value = 30;
+      controller.restDaySessionLimitMinutes.value = 90;
+      controller.workdayDailyLimitMinutes.value = 60;
+      controller.restDayDailyLimitMinutes.value = 180;
+      controller.currentDayType.value = TvAntiAddictionDayType.restDay;
+
+      expect(controller.effectiveSessionLimitMinutes, 90);
+      expect(controller.sessionLimitSeconds, 90 * 60);
+      expect(controller.effectiveDailyLimitMinutes, 180);
+      expect(controller.dailyLimitSeconds, 180 * 60);
+
+      controller.currentDayType.value = TvAntiAddictionDayType.workday;
+
+      expect(controller.effectiveSessionLimitMinutes, 30);
+      expect(controller.effectiveDailyLimitMinutes, 60);
     });
   });
 

@@ -227,19 +227,70 @@ class TvSettingsPage extends StatelessWidget {
               ),
               const SizedBox(height: 18),
               _SettingRow(
-                title: '单次观看时长',
-                subtitle: '到点后进入强制休息锁页',
-                value:
-                    '${controller.antiAddiction.sessionLimitMinutes.value} 分钟',
+                title: '按工作日/休息日分配',
+                subtitle:
+                    '休息日包含周末和法定假日，调休上班日按工作日；今日按${controller.currentDayTypeLabel}计算',
+                value: controller.calendarLimitStatus,
                 actions: <Widget>[
                   TvFocusableButton(
-                    label: '选择',
-                    icon: Icons.timer_outlined,
-                    onPressed: () => controller.selectSessionLimit(context),
+                    label: controller.antiAddiction.calendarLimitEnabled.value
+                        ? '关闭'
+                        : '开启',
+                    icon: controller.antiAddiction.calendarLimitEnabled.value
+                        ? Icons.toggle_on
+                        : Icons.toggle_off,
+                    onPressed: () => controller.toggleCalendarLimits(context),
                   ),
                 ],
               ),
               const SizedBox(height: 18),
+              if (controller
+                  .antiAddiction.calendarLimitEnabled.value) ...<Widget>[
+                _SettingRow(
+                  title: '工作日单次时长',
+                  subtitle: '工作日到点后进入强制休息锁页',
+                  value:
+                      '${controller.antiAddiction.workdaySessionLimitMinutes.value} 分钟',
+                  actions: <Widget>[
+                    TvFocusableButton(
+                      label: '选择',
+                      icon: Icons.work_outline_rounded,
+                      onPressed: () =>
+                          controller.selectWorkdaySessionLimit(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                _SettingRow(
+                  title: '休息日单次时长',
+                  subtitle: '周末和法定假日使用，可设置得更长',
+                  value:
+                      '${controller.antiAddiction.restDaySessionLimitMinutes.value} 分钟',
+                  actions: <Widget>[
+                    TvFocusableButton(
+                      label: '选择',
+                      icon: Icons.weekend_outlined,
+                      onPressed: () =>
+                          controller.selectRestDaySessionLimit(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+              ] else ...<Widget>[
+                _SettingRow(
+                  title: '单次观看时长',
+                  subtitle: '到点后进入强制休息锁页',
+                  value: controller.sessionLimitLabel,
+                  actions: <Widget>[
+                    TvFocusableButton(
+                      label: '选择',
+                      icon: Icons.timer_outlined,
+                      onPressed: () => controller.selectSessionLimit(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+              ],
               _SettingRow(
                 title: '强制休息时长',
                 subtitle: '休息倒计时结束后自动解锁',
@@ -253,19 +304,55 @@ class TvSettingsPage extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 18),
-              _SettingRow(
-                title: '每日总时长',
-                subtitle: '关闭时只按单次观看和强制休息计时',
-                value: controller.dailyLimitLabel,
-                actions: <Widget>[
-                  TvFocusableButton(
-                    label: '选择',
-                    icon: Icons.today_outlined,
-                    onPressed: () => controller.selectDailyLimit(context),
+              if (controller
+                  .antiAddiction.calendarLimitEnabled.value) ...<Widget>[
+                _SettingRow(
+                  title: '工作日每日总时长',
+                  subtitle: '关闭时工作日只按单次观看和强制休息计时',
+                  value: controller.limitLabel(
+                    controller.antiAddiction.workdayDailyLimitMinutes.value,
                   ),
-                ],
-              ),
-              const SizedBox(height: 18),
+                  actions: <Widget>[
+                    TvFocusableButton(
+                      label: '选择',
+                      icon: Icons.today_outlined,
+                      onPressed: () =>
+                          controller.selectWorkdayDailyLimit(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                _SettingRow(
+                  title: '休息日每日总时长',
+                  subtitle: '周末和法定假日可设置更长的每日额度',
+                  value: controller.limitLabel(
+                    controller.antiAddiction.restDayDailyLimitMinutes.value,
+                  ),
+                  actions: <Widget>[
+                    TvFocusableButton(
+                      label: '选择',
+                      icon: Icons.event_available_outlined,
+                      onPressed: () =>
+                          controller.selectRestDayDailyLimit(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+              ] else ...<Widget>[
+                _SettingRow(
+                  title: '每日总时长',
+                  subtitle: '关闭时只按单次观看和强制休息计时',
+                  value: controller.dailyLimitLabel,
+                  actions: <Widget>[
+                    TvFocusableButton(
+                      label: '选择',
+                      icon: Icons.today_outlined,
+                      onPressed: () => controller.selectDailyLimit(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+              ],
               _SettingRow(
                 title: '解锁方式',
                 subtitle: controller.unlockUsesMath
@@ -389,7 +476,9 @@ class _WatchTimeProgressPanel extends StatelessWidget {
                 ),
               ),
               Text(
-                enabled ? '防沉迷已开启' : '防沉迷未开启',
+                enabled
+                    ? '防沉迷已开启 · 今日${controller.currentDayTypeLabel}'
+                    : '防沉迷未开启',
                 style: TextStyle(
                   color: enabled ? _activeColor : Colors.white54,
                   fontSize: 16,

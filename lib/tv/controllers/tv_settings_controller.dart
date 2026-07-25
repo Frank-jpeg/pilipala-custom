@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:pilipala/tv/controllers/tv_anti_addiction_controller.dart';
 import 'package:pilipala/tv/controllers/tv_home_controller.dart';
+import 'package:pilipala/tv/models/tv_anti_addiction_calendar.dart';
 import 'package:pilipala/tv/models/tv_anti_addiction_unlock.dart';
 import 'package:pilipala/tv/pages/anti_addiction/tv_anti_addiction_lock_page.dart';
 import 'package:pilipala/utils/global_data_cache.dart';
@@ -246,11 +247,25 @@ class TvSettingsController extends GetxController {
   }
 
   String get dailyLimitLabel {
-    final int value = antiAddiction.dailyLimitMinutes.value;
+    final int value = antiAddiction.effectiveDailyLimitMinutes;
     return value == 0 ? '已关闭' : '$value 分钟';
   }
 
   String get antiAddictionStatus => antiAddiction.enabled.value ? '已开启' : '已关闭';
+
+  String get calendarLimitStatus =>
+      antiAddiction.calendarLimitEnabled.value ? '已开启' : '已关闭';
+
+  String get currentDayTypeLabel => antiAddiction.currentDayType.value.label;
+
+  String get sessionLimitLabel =>
+      '${antiAddiction.effectiveSessionLimitMinutes} 分钟';
+
+  String get scheduleSummaryLabel => antiAddiction.calendarLimitEnabled.value
+      ? '今日$currentDayTypeLabel'
+      : '统一规则';
+
+  String limitLabel(int value) => value == 0 ? '已关闭' : '$value 分钟';
 
   String get pinStatus => antiAddiction.hasPin ? '已设置' : '未设置';
 
@@ -273,6 +288,15 @@ class TvSettingsController extends GetxController {
       }
     }
     await antiAddiction.setEnabled(true);
+  }
+
+  Future<void> toggleCalendarLimits(BuildContext context) async {
+    if (!await _verifyPinIfNeeded(context)) {
+      return;
+    }
+    await antiAddiction.setCalendarLimitEnabled(
+      !antiAddiction.calendarLimitEnabled.value,
+    );
   }
 
   Future<bool> setOrChangePin(BuildContext context) async {
@@ -325,10 +349,43 @@ class TvSettingsController extends GetxController {
     if (!await _verifyPinIfNeeded(context)) {
       return;
     }
-    final int current = antiAddiction.sessionLimitMinutes.value;
+    await _selectSessionLimitValue(
+      title: '单次观看时长',
+      current: antiAddiction.sessionLimitMinutes.value,
+      save: antiAddiction.setSessionLimitMinutes,
+    );
+  }
+
+  Future<void> selectWorkdaySessionLimit(BuildContext context) async {
+    if (!await _verifyPinIfNeeded(context)) {
+      return;
+    }
+    await _selectSessionLimitValue(
+      title: '工作日单次观看时长',
+      current: antiAddiction.workdaySessionLimitMinutes.value,
+      save: antiAddiction.setWorkdaySessionLimitMinutes,
+    );
+  }
+
+  Future<void> selectRestDaySessionLimit(BuildContext context) async {
+    if (!await _verifyPinIfNeeded(context)) {
+      return;
+    }
+    await _selectSessionLimitValue(
+      title: '休息日单次观看时长',
+      current: antiAddiction.restDaySessionLimitMinutes.value,
+      save: antiAddiction.setRestDaySessionLimitMinutes,
+    );
+  }
+
+  Future<void> _selectSessionLimitValue({
+    required String title,
+    required int current,
+    required Future<void> Function(int value) save,
+  }) async {
     final bool usesPreset = sessionOptions.contains(current);
     final int? selected = await _showIntOptionDialog(
-      title: '单次观看时长',
+      title: title,
       options: <int>[...sessionOptions, -1],
       current: usesPreset ? current : -1,
       labelBuilder: (int v) => v == -1
@@ -352,7 +409,7 @@ class TvSettingsController extends GetxController {
     if (value == null) {
       return;
     }
-    await antiAddiction.setSessionLimitMinutes(value);
+    await save(value);
   }
 
   Future<void> selectRestMinutes(BuildContext context) async {
@@ -375,16 +432,50 @@ class TvSettingsController extends GetxController {
     if (!await _verifyPinIfNeeded(context)) {
       return;
     }
-    final int? value = await _showIntOptionDialog(
+    await _selectDailyLimitValue(
       title: '每日总时长',
-      options: dailyOptions,
       current: antiAddiction.dailyLimitMinutes.value,
+      save: antiAddiction.setDailyLimitMinutes,
+    );
+  }
+
+  Future<void> selectWorkdayDailyLimit(BuildContext context) async {
+    if (!await _verifyPinIfNeeded(context)) {
+      return;
+    }
+    await _selectDailyLimitValue(
+      title: '工作日每日总时长',
+      current: antiAddiction.workdayDailyLimitMinutes.value,
+      save: antiAddiction.setWorkdayDailyLimitMinutes,
+    );
+  }
+
+  Future<void> selectRestDayDailyLimit(BuildContext context) async {
+    if (!await _verifyPinIfNeeded(context)) {
+      return;
+    }
+    await _selectDailyLimitValue(
+      title: '休息日每日总时长',
+      current: antiAddiction.restDayDailyLimitMinutes.value,
+      save: antiAddiction.setRestDayDailyLimitMinutes,
+    );
+  }
+
+  Future<void> _selectDailyLimitValue({
+    required String title,
+    required int current,
+    required Future<void> Function(int value) save,
+  }) async {
+    final int? value = await _showIntOptionDialog(
+      title: title,
+      options: dailyOptions,
+      current: current,
       labelBuilder: (int v) => v == 0 ? '关闭' : '$v 分钟',
     );
     if (value == null) {
       return;
     }
-    await antiAddiction.setDailyLimitMinutes(value);
+    await save(value);
   }
 
   Future<void> selectUnlockMode(BuildContext context) async {

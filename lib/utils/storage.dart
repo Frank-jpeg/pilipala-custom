@@ -124,6 +124,16 @@ class SettingBoxKey {
       tvAntiAddictionSessionLimitMinutes = 'tvAntiAddictionSessionLimitMinutes',
       tvAntiAddictionRestMinutes = 'tvAntiAddictionRestMinutes',
       tvAntiAddictionDailyLimitMinutes = 'tvAntiAddictionDailyLimitMinutes',
+      tvAntiAddictionCalendarLimitEnabled =
+          'tvAntiAddictionCalendarLimitEnabled',
+      tvAntiAddictionWorkdaySessionLimitMinutes =
+          'tvAntiAddictionWorkdaySessionLimitMinutes',
+      tvAntiAddictionRestDaySessionLimitMinutes =
+          'tvAntiAddictionRestDaySessionLimitMinutes',
+      tvAntiAddictionWorkdayDailyLimitMinutes =
+          'tvAntiAddictionWorkdayDailyLimitMinutes',
+      tvAntiAddictionRestDayDailyLimitMinutes =
+          'tvAntiAddictionRestDayDailyLimitMinutes',
       tvAntiAddictionDailyUsedSeconds = 'tvAntiAddictionDailyUsedSeconds',
       tvAntiAddictionDailyDate = 'tvAntiAddictionDailyDate',
       tvAntiAddictionRestUntil = 'tvAntiAddictionRestUntil',

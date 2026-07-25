@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
+import 'package:pilipala/tv/models/tv_anti_addiction_calendar.dart';
 import 'package:pilipala/tv/models/tv_anti_addiction_unlock.dart';
 import 'package:pilipala/utils/storage.dart';
 
@@ -13,12 +14,22 @@ enum TvAntiAddictionLockReason {
 class TvAntiAddictionController extends GetxController
     with WidgetsBindingObserver {
   static const int defaultSessionLimitMinutes = 30;
+  static const int defaultRestDaySessionLimitMinutes = 60;
   static const int defaultRestMinutes = 20;
+  static const int defaultRestDayDailyLimitMinutes = 180;
 
   final RxBool enabled = false.obs;
   final RxInt sessionLimitMinutes = defaultSessionLimitMinutes.obs;
   final RxInt restMinutes = defaultRestMinutes.obs;
   final RxInt dailyLimitMinutes = 0.obs;
+  final RxBool calendarLimitEnabled = false.obs;
+  final RxInt workdaySessionLimitMinutes = defaultSessionLimitMinutes.obs;
+  final RxInt restDaySessionLimitMinutes =
+      defaultRestDaySessionLimitMinutes.obs;
+  final RxInt workdayDailyLimitMinutes = 0.obs;
+  final RxInt restDayDailyLimitMinutes = 0.obs;
+  final Rx<TvAntiAddictionDayType> currentDayType =
+      TvAntiAddictionCalendar.dayTypeOf(DateTime.now()).obs;
   final RxInt dailyUsedSeconds = 0.obs;
   final RxBool isLocked = false.obs;
   final Rxn<TvAntiAddictionLockReason> lockReason =
@@ -45,14 +56,29 @@ class TvAntiAddictionController extends GetxController
 
   bool get isDailyLimited =>
       enabled.value &&
-      dailyLimitMinutes.value > 0 &&
-      dailyUsedSeconds.value >= dailyLimitMinutes.value * 60;
+      effectiveDailyLimitMinutes > 0 &&
+      dailyUsedSeconds.value >= effectiveDailyLimitMinutes * 60;
 
   bool get hasTemporarySessionLimit => temporarySessionLimitSeconds.value > 0;
 
+  bool get isTodayRestDay =>
+      currentDayType.value == TvAntiAddictionDayType.restDay;
+
+  int get effectiveSessionLimitMinutes => calendarLimitEnabled.value
+      ? isTodayRestDay
+          ? restDaySessionLimitMinutes.value
+          : workdaySessionLimitMinutes.value
+      : sessionLimitMinutes.value;
+
+  int get effectiveDailyLimitMinutes => calendarLimitEnabled.value
+      ? isTodayRestDay
+          ? restDayDailyLimitMinutes.value
+          : workdayDailyLimitMinutes.value
+      : dailyLimitMinutes.value;
+
   int get sessionLimitSeconds => hasTemporarySessionLimit
       ? temporarySessionLimitSeconds.value
-      : sessionLimitMinutes.value * 60;
+      : effectiveSessionLimitMinutes * 60;
 
   int get sessionRemainingSeconds =>
       (sessionLimitSeconds - sessionUsedSeconds.value)
@@ -68,9 +94,9 @@ class TvAntiAddictionController extends GetxController
       sessionLimitSeconds > 0 &&
       sessionUsedSeconds.value >= sessionLimitSeconds;
 
-  bool get hasDailyLimit => dailyLimitMinutes.value > 0;
+  bool get hasDailyLimit => effectiveDailyLimitMinutes > 0;
 
-  int get dailyLimitSeconds => dailyLimitMinutes.value * 60;
+  int get dailyLimitSeconds => effectiveDailyLimitMinutes * 60;
 
   int get dailyRemainingSeconds => !hasDailyLimit
       ? 0
@@ -125,6 +151,31 @@ class TvAntiAddictionController extends GetxController
       SettingBoxKey.tvAntiAddictionDailyLimitMinutes,
       defaultValue: 0,
     ) as int;
+    calendarLimitEnabled.value = GStrorage.setting.get(
+      SettingBoxKey.tvAntiAddictionCalendarLimitEnabled,
+      defaultValue: false,
+    ) as bool;
+    workdaySessionLimitMinutes.value = GStrorage.setting.get(
+      SettingBoxKey.tvAntiAddictionWorkdaySessionLimitMinutes,
+      defaultValue: sessionLimitMinutes.value,
+    ) as int;
+    restDaySessionLimitMinutes.value = GStrorage.setting.get(
+      SettingBoxKey.tvAntiAddictionRestDaySessionLimitMinutes,
+      defaultValue: _maxInt(
+        sessionLimitMinutes.value,
+        defaultRestDaySessionLimitMinutes,
+      ),
+    ) as int;
+    workdayDailyLimitMinutes.value = GStrorage.setting.get(
+      SettingBoxKey.tvAntiAddictionWorkdayDailyLimitMinutes,
+      defaultValue: dailyLimitMinutes.value,
+    ) as int;
+    restDayDailyLimitMinutes.value = GStrorage.setting.get(
+      SettingBoxKey.tvAntiAddictionRestDayDailyLimitMinutes,
+      defaultValue: dailyLimitMinutes.value == 0
+          ? 0
+          : _maxInt(dailyLimitMinutes.value, defaultRestDayDailyLimitMinutes),
+    ) as int;
     dailyUsedSeconds.value = GStrorage.setting.get(
       SettingBoxKey.tvAntiAddictionDailyUsedSeconds,
       defaultValue: 0,
@@ -166,6 +217,37 @@ class TvAntiAddictionController extends GetxController
     resetSession();
   }
 
+  Future<void> setCalendarLimitEnabled(bool value) async {
+    calendarLimitEnabled.value = value;
+    await GStrorage.setting.put(
+      SettingBoxKey.tvAntiAddictionCalendarLimitEnabled,
+      value,
+    );
+    resetSession();
+  }
+
+  Future<void> setWorkdaySessionLimitMinutes(int value) async {
+    workdaySessionLimitMinutes.value = value;
+    await GStrorage.setting.put(
+      SettingBoxKey.tvAntiAddictionWorkdaySessionLimitMinutes,
+      value,
+    );
+    if (calendarLimitEnabled.value && !isTodayRestDay) {
+      resetSession();
+    }
+  }
+
+  Future<void> setRestDaySessionLimitMinutes(int value) async {
+    restDaySessionLimitMinutes.value = value;
+    await GStrorage.setting.put(
+      SettingBoxKey.tvAntiAddictionRestDaySessionLimitMinutes,
+      value,
+    );
+    if (calendarLimitEnabled.value && isTodayRestDay) {
+      resetSession();
+    }
+  }
+
   Future<void> setRestMinutes(int value) async {
     restMinutes.value = value;
     await GStrorage.setting
@@ -177,6 +259,24 @@ class TvAntiAddictionController extends GetxController
     dailyLimitMinutes.value = value;
     await GStrorage.setting.put(
       SettingBoxKey.tvAntiAddictionDailyLimitMinutes,
+      value,
+    );
+  }
+
+  Future<void> setWorkdayDailyLimitMinutes(int value) async {
+    _rollDailyIfNeeded();
+    workdayDailyLimitMinutes.value = value;
+    await GStrorage.setting.put(
+      SettingBoxKey.tvAntiAddictionWorkdayDailyLimitMinutes,
+      value,
+    );
+  }
+
+  Future<void> setRestDayDailyLimitMinutes(int value) async {
+    _rollDailyIfNeeded();
+    restDayDailyLimitMinutes.value = value;
+    await GStrorage.setting.put(
+      SettingBoxKey.tvAntiAddictionRestDayDailyLimitMinutes,
       value,
     );
   }
@@ -344,7 +444,9 @@ class TvAntiAddictionController extends GetxController
   }
 
   void _rollDailyIfNeeded() {
-    final String today = _dateKey(DateTime.now());
+    final DateTime now = DateTime.now();
+    currentDayType.value = TvAntiAddictionCalendar.dayTypeOf(now);
+    final String today = TvAntiAddictionCalendar.dateKey(now);
     final String stored = GStrorage.setting.get(
       SettingBoxKey.tvAntiAddictionDailyDate,
       defaultValue: '',
@@ -359,10 +461,6 @@ class TvAntiAddictionController extends GetxController
       unlock(resume: false);
     }
   }
-
-  String _dateKey(DateTime value) => '${value.year.toString().padLeft(4, '0')}-'
-      '${value.month.toString().padLeft(2, '0')}-'
-      '${value.day.toString().padLeft(2, '0')}';
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -403,3 +501,5 @@ class TvAntiAddictionController extends GetxController
     super.onClose();
   }
 }
+
+int _maxInt(int a, int b) => a > b ? a : b;
